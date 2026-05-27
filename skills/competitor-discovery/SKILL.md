@@ -17,7 +17,7 @@ The skill handles entity resolution (fuzzy matching) to avoid duplicates and pro
 ## When to Use
 
 ✅ **Use this skill when:**
-- Running daily/weekly discovery scans to expand the competitive landscape
+- Running daily discovery scans to expand the competitive landscape
 - You want to systematically track new entrants in mining AI and related sectors
 - You need to identify investor relationships and supply chain connections
 - You're building a curated list of players across mining exploration, critical minerals, and mineral tech
@@ -25,6 +25,32 @@ The skill handles entity resolution (fuzzy matching) to avoid duplicates and pro
 ❌ **Don't use this skill for:**
 - Deep research into existing competitors (use `competitor-research` skill instead)
 - Analyzing market dynamics or strategy (use `competitor-dashboard` skill for visualization)
+
+## Tools & APIs
+
+This skill requires the following tools to function:
+
+**Web Data Fetching:**
+- **`web_fetch`** (OpenClaw) — Fetch page content from mining industry sources (mining.com, mining-weekly.com, etc.)
+- **`web_search`** (OpenClaw) — Keyword-based search for "mining AI", "exploration tech", "critical minerals" companies
+
+**Entity Matching:**
+- **`fuzzy_matching`** — Levenshtein distance calculation for company name deduplication (threshold: 0.85 by default)
+
+**Data Access:**
+- Crunchbase API (if available) — Company funding data
+- PitchBook API (if available) — VC portfolio data
+- LinkedIn public profiles (via web_fetch) — Company info, hiring signals
+
+**Rate Limiting & Error Handling:**
+- Respect rate limits: mining.com (~1 req/sec), Crunchbase (if API), LinkedIn (public data only)
+- Timeout: 30 seconds per page fetch, retry with exponential backoff on failure
+- If source is unavailable, log error and continue with other sources (partial results OK)
+
+**Data Quality Requirements:**
+- All extracted values MUST have verifiable source URL
+- No hallucination — if company info cannot be found in sources, leave blank
+- Preserve all source URLs for full auditability
 
 ## Input Schema
 
@@ -181,10 +207,25 @@ Skill produces:
 - CSV backup of new_competitors and new_related_companies
 - Log file with sources scanned, errors encountered, and statistics
 
+## Confidence Scoring
+
+Confidence is calculated based on number of sources and signal reliability:
+
+- **0.95-1.0**: Multi-source cross-verification (company website + Crunchbase + press release all confirm same fact)
+- **0.85-0.94**: Single trusted source (official press release, LinkedIn official announcement, company website)
+- **0.70-0.84**: News mention or investor announcement (lower signal weight)
+- **< 0.70**: Unverified rumor or social media post (discard)
+
+Example:
+- "Terra AI has 42 employees" sourced from official website + LinkedIn profile = **0.98 confidence**
+- "Company raised Series B $15M" from press release alone = **0.90 confidence**
+- "Startup hiring for mining roles" from job posting = **0.80 confidence**
+
 ## Notes
 
 - **Fuzzy matching** prevents re-discovery of known competitors with name variations
 - **Related companies** expand the competitive landscape beyond direct competitors
 - **Confidence scores** help prioritize which discoveries deserve deep research
 - All sources and URLs are preserved for traceability (raw_signals)
+- **No hallucination policy**: Every field value must have a verifiable source URL
 
