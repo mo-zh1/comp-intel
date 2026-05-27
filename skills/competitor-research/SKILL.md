@@ -42,15 +42,13 @@ The skill is designed for **daily runs** to keep competitive intelligence curren
       "company_website",
       "linkedin_company_profile",
       "news_mentions",
-      "job_postings",
-      "team_pages"
+      "investor_announcements",
+      "crunchbase",
+      "pitchbook",
+      "job_postings"
     ],
-    "merge_strategy": "auto",
-    "merge_thresholds": {
-      "auto_merge": 0.95,
-      "decision_logic": 0.85,
-      "discard": 0.70
-    }
+    "merge_strategy": "cross_validated",
+    "source_verification": "STRICT"
   }
 }
 ```
@@ -60,8 +58,8 @@ The skill is designed for **daily runs** to keep competitive intelligence curren
 - `companies_source`: `"google_sheet"` (reads from Google Sheets)
 - `research_depth`: `"full"` (all fields) or `"incremental"` (only changed fields)
 - `scrape_targets`: Which sources to scrape
-- `merge_strategy`: `"auto"` (no human review) or `"staging"` (requires human approval)
-- `merge_thresholds`: Confidence levels for different merge behaviors
+- `merge_strategy`: `"cross_validated"` (2+ trusted sources required for merge)
+- `source_verification`: `"STRICT"` (no hallucination, all values must be verifiable)
 
 ## Process
 
@@ -133,26 +131,46 @@ For each scraped page, use Claude to extract structured fields:
 }
 ```
 
-### 4. Entity Resolution & Merge
+### 4. Entity Resolution & Merge (Cross-Validation)
 
-For each field, compare new value with existing value:
+For each field, check: Do we have 2+ trusted sources that agree?
 
-**High Confidence (>= 0.95):**
-- Automatically adopt new value
-- Mark as `auto-merged`
-- Preserve old value in raw_signals for audit
+**Trusted sources (absolutely verifiable):**
+- company_website
+- linkedin_company_profile
+- investor_official_announcement
+- press_release
+- crunchbase (verified by company)
+- pitchbook (verified by company)
+- sec_filing
 
-**Medium Confidence (0.85-0.95):**
-- Apply decision logic:
-  - If new source is more recent → adopt new value
-  - If new source is more authoritative (official site > news) → adopt new value
-  - If values differ but both credible → keep both in raw_signals, mark as `multi-sourced`
-- No human intervention required
+**Merge logic:**
 
-**Low Confidence (< 0.85):**
-- Discard the low-confidence value
-- Log in error log
-- Keep existing value unchanged
+1. **2+ trusted sources AGREE** (same value)
+   → AUTO-MERGE immediately
+   → Mark as `cross_validated`
+   → Preserve all sources in raw_signals
+
+2. **2+ trusted sources DISAGREE** (conflicting values)
+   → Log the discrepancy
+   → Use decision logic: prefer more recent source or more authoritative source
+   → Mark as `multi_sourced_conflict`
+   → Keep both values in raw_signals with timestamps
+
+3. **Only 1 trusted source** (single source, but authoritative)
+   → Accept if source is official (e.g., company website for founding date)
+   → Mark as `single_source_verified`
+   → Preserve source in raw_signals
+
+4. **No trusted sources** (unverifiable)
+   → DISCARD the value
+   → LEAVE FIELD EMPTY (do not guess or infer)
+   → Log reason: "no_trusted_source"
+
+**CRITICAL: No Hallucination**
+- Every merged value must have at least one verifiable source
+- If source unclear or unverifiable → leave blank, don't fill with assumptions
+- All discards are logged with reason code for auditing
 
 ### 5. Event Log Generation
 
@@ -254,19 +272,36 @@ Write results to Sheets:
 }
 ```
 
-## Merge Logic (Key Design)
+## Merge Logic (Cross-Validation, NO Human Review)
 
-This skill does **NOT** require human review for merges. All decisions are automatic:
+This skill does **NOT** require human review. Merge policy is simple and automatic:
 
-1. **Timestamp-based**: Newer values generally override older ones
-2. **Source authority**: Official website > LinkedIn > News > Social media
-3. **Confidence scoring**: Based on extraction reliability and source credibility
-4. **Multi-source retention**: If values conflict but both are credible, keep both in raw_signals
+### Core Rule: 2+ Trusted Sources = AUTO-MERGE
+
+**Trusted sources (absolutely verifiable):**
+- Official company website
+- LinkedIn company profile
+- Official investor/VC announcements
+- Press releases (from reputable news outlets)
+- SEC filings (if applicable)
+
+**Merge policy:**
+1. **2+ trusted sources agree** → AUTO-MERGE immediately, no questions asked
+2. **1 trusted source** → Accept if authoritative (e.g., official website for founding date)
+3. **Unverified or conflicting sources** → Discard, log the discrepancy
+
+**CRITICAL CONSTRAINT: NO HALLUCINATION**
+- Every extracted value MUST have a verifiable source
+- If source is unclear or unverifiable → Leave field EMPTY
+- Do NOT guess, infer, or hallucinate missing values
+- Preserve all source URLs in raw_signals for full auditability
 
 **Example merge scenarios:**
-- LinkedIn says 25 employees, website says 35 → Keep both, mark as `multi-sourced`, use website as primary (more authoritative)
-- Press release says $50M funding, Crunchbase says $45M → Use press release (more recent source), note discrepancy
-- Wikipedia says founded 2020, company website says 2019 → Use company website (more authoritative)
+- LinkedIn says 42 employees, website says 40 → 2 trusted sources, differ by 5% → AUTO-MERGE, use average (41) or website as primary, log discrepancy
+- Official press release says Series B $15M, Crunchbase says $15M → AUTO-MERGE, both agree
+- Random Twitter post says "raising soon" → DISCARD, no trusted source, leave field empty
+- No source for team size → LEAVE EMPTY (do not guess)
+- Website and LinkedIn both say founded 2020 → AUTO-MERGE (2 sources agree)
 
 ## Scheduling
 

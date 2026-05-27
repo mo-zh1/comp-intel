@@ -9,38 +9,38 @@ Three skills form the competitive intelligence pipeline:
 
 ---
 
-## 🤔 Questions Requiring Your Confirmation
+## ✅ Questions — Confirmed & Implemented
 
-### 1️⃣ Data Sources — Complete?
+### 1️⃣ Data Sources — CONFIRMED ✅
 
-**Current sources (7 total):**
+**Original 7 sources:**
 - mining.com
 - mining-weekly.com
 - discoveryalert.com.au
-- USGS Periodicals (copper, mineral production data)
+- USGS Periodicals
 - Canada Natural Resources
 - LinkedIn Mining AI search
-- arXiv papers (geology + AI)
+- arXiv papers
 
-**Questions:**
-- Are these 7 sources sufficient for initial run?
-- Should we add: Crunchbase, PitchBook, Y Combinator database, specific VC firm websites (BHP Ventures, Rio Tinto Ventures)?
-- Any sources to remove or de-prioritize?
+**Added (as requested):**
+- ✅ Crunchbase (mining, geology, AI, critical minerals)
+- ✅ PitchBook (mining, minerals, exploration tech)
+- ✅ Y Combinator database
+- ✅ BHP Ventures (corporate venture)
+- ✅ Rio Tinto Ventures (corporate venture)
 
-**Reference:** See `config.yaml` for full source list.
+**Total: 12+ sources across mining news, investor portfolios, and academic research**
 
 ---
 
-### 2️⃣ Google Sheet Fields — Complete?
+### 2️⃣ Google Sheet Fields — CONFIRMED ✅
 
-**Assumed field structure:**
-
-**companies tab:**
+**companies tab (added `valuation`):**
 ```
 id, canonical_name, website, linkedin_url, founded_year, hq_city, hq_country,
 founders, team_size, investors, latest_round_type, latest_round_amount_usd, 
-latest_round_date, business_model, technical_stage, core_product, pricing_model, 
-target_customer, status, last_updated, confidence_score, discovered_source
+latest_round_date, valuation, business_model, technical_stage, core_product, 
+pricing_model, target_customer, status, last_updated, confidence_score, discovered_source
 ```
 
 **events tab:**
@@ -58,16 +58,13 @@ timestamp, company_name, field, old_value, new_value, source_url, confidence, st
 company_id, field, value, source_url, source_type, extracted_at, confidence, raw_content_preview
 ```
 
-**Questions:**
-- Are these fields sufficient?
-- Should we add: valuation, headcount, customer_count, revenue_signals, etc.?
-- Any fields to rename or restructure?
+✅ **Valuation field added** to capital section
 
 ---
 
-### 3️⃣ Event Types — Sufficient?
+### 3️⃣ Event Types — CONFIRMED ✅
 
-**Current event types (8 total):**
+**Event types (8 total, keeping as-is):**
 - funding_round
 - acquisition
 - leadership_change
@@ -77,74 +74,83 @@ company_id, field, value, source_url, source_type, extracted_at, confidence, raw
 - expansion
 - news_mention
 
-**Questions:**
-- Are these 8 types enough?
-- Should we add: patent_filing, regulatory_approval, customer_win, customer_loss, rebrand?
-- Any to remove?
+✅ **No changes needed**
 
 ---
 
-### 4️⃣ Merge Logic Thresholds — Appropriate?
+### 4️⃣ Merge Logic — CONFIRMED ✅ (Cross-Validation Strategy)
 
-**Current thresholds (Skill 2 — competitor-research):**
-- **>= 0.95 confidence** → Auto-merge (no human review)
-- **0.85-0.95 confidence** → Decision logic (prefer recent, prefer authoritative source)
-- **< 0.85 confidence** → Discard
+**New policy (NO confidence thresholds, NO human review):**
+- **2+ trusted sources AGREE** → AUTO-MERGE immediately
+- **Single trusted source** → Accept if authoritative
+- **Unverifiable sources** → DISCARD, leave field EMPTY
 
-**Example merge scenarios:**
-- LinkedIn says 42 employees, website says 40 → 0.92 confidence → Use decision logic (website is authoritative, check timestamp) → Result: use website if recent, else LinkedIn
-- Press release says Series B $15M, news says Series B $14.8M → 0.98 confidence → Auto-merge → Result: $15M (press release is primary)
-- Tweet says founder hired → 0.60 confidence → Discard (too low signal)
+**Trusted sources (absolutely verifiable):**
+- Official company website
+- LinkedIn company profile
+- Official investor/VC announcements
+- Press releases
+- SEC filings
 
-**Questions:**
-- Are the thresholds 0.95/0.85 reasonable, or should they be higher/lower?
-- Is the decision logic (source authority + timestamp) appropriate?
-- Do you want human review for any confidence range?
+**CRITICAL: NO HALLUCINATION**
+- Every value MUST have verifiable source
+- Unknown fields → leave EMPTY, do not guess
+
+**Example scenarios:**
+- LinkedIn says 42 employees, website says 40 → 2 trusted sources → AUTO-MERGE (use average or website as primary)
+- Official press release $15M Series B, Crunchbase $15M → 2 trusted sources, both agree → AUTO-MERGE
+- Random blog post says "raising Series C" → DISCARD (no trusted source)
+- No source for valuation → LEAVE EMPTY (do not estimate or infer)
+
+✅ **No human review needed. Cross-validation-based merging only.**
 
 ---
 
-### 5️⃣ GitHub Auto-Push — Enable?
+### 5️⃣ GitHub Auto-Push — CONFIRMED ✅
 
-**Current design (Skill 3):**
-- After dashboard generation, automatically push to GitHub
+**Enabled:**
 - CSVs to `/data/`
 - HTML to `/dashboard/`
 - Old CSVs archived to `/data/archive/`
 - Commit message: `[auto] daily update — YYYY-MM-DD`
 
-**Questions:**
-- Enable auto-push, or require manual review before commit?
-- Commit message format OK?
-- Any other files to track (logs, metrics)?
+✅ **Auto-push enabled. No manual review required.**
 
 ---
 
-### 6️⃣ Daily Cron Schedule — Feasible?
+### 6️⃣ Daily Cron Schedule — CONFIRMED ✅
 
-**Current plan (18:00 UTC):**
+**Schedule (18:00 EST / UTC-5, or UTC-4 during EDT):**
 ```
-18:00 → Skill 1: competitor-discovery (~15 min)
-18:15 → Skill 2: competitor-research (~30-60 min, varies with # companies)
-19:15 → Skill 3: competitor-dashboard (~5-10 min)
-19:25 → Complete
+18:00 EST → Skill 1: competitor-discovery (~15 min)
+18:15 EST → Skill 2: competitor-research (~30-60 min, varies with # companies)
+19:15 EST → Skill 3: competitor-dashboard (~5-10 min)
+19:25 EST → Complete
 ```
 
-**Questions:**
-- Is 18:00 UTC a good time, or prefer different timezone/time?
-- Expected company list size for daily research: 12, 25, 50+?
-- OK if research phase sometimes takes 60+ min for large lists?
-- Should we implement staggered scheduling (e.g., discovery daily, research every 2 days)?
+**Run frequency:**
+- Daily for all 3 skills
+- Sequential execution (no parallelization)
+
+✅ **18:00 EST (America/New_York timezone). Daily for all skills.**
 
 ---
 
-## 📝 Next Steps (After Your Answers)
+## ✅ All Confirmed & Implemented
 
-1. ✅ You answer these 6 questions
-2. 🔄 I adjust SKILL.md files and config.yaml based on feedback
-3. 🧪 Run Skill 1 test (source scanning)
-4. 📊 Show results, gather feedback
-5. ✅ Proceed to Skill 2 and 3 testing
-6. 🚀 Create Google Sheet + set up cron
+1. ✅ Data sources: 12+ sources (added Crunchbase, PitchBook, Y Combinator, BHP/Rio Tinto Ventures)
+2. ✅ Google Sheet fields: Added `valuation` field
+3. ✅ Event types: Keep current 8 types
+4. ✅ Merge logic: Cross-validation (2+ trusted sources), NO human review, NO hallucination
+5. ✅ GitHub auto-push: Enabled
+6. ✅ Cron schedule: 18:00 EST daily
+
+## 📝 Next Steps
+
+1. ✅ Feedback from mo.zh incorporated
+2. 🧪 Ready for Skill testing (Anthropic skill-creator)
+3. 📊 Show test results to mo.zh
+4. 🚀 Create Google Sheet + set up daily cron
 
 ---
 

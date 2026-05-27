@@ -40,6 +40,31 @@ data_sources:
       url: "https://linkedin.com"
       search_terms: ["mining ventures", "mineral tech", "critical minerals"]
       priority: 2
+    
+    - name: "Crunchbase"
+      url: "https://crunchbase.com"
+      filters: ["mining", "geology", "AI", "critical minerals"]
+      priority: 1
+    
+    - name: "PitchBook"
+      url: "https://pitchbook.com"
+      filters: ["mining", "minerals", "exploration tech"]
+      priority: 1
+    
+    - name: "Y Combinator Database"
+      url: "https://www.ycombinator.com"
+      filters: ["mining", "materials", "earth tech"]
+      priority: 2
+    
+    - name: "BHP Ventures"
+      url: "https://bhpventures.com"
+      category: "corporate_venture"
+      priority: 1
+    
+    - name: "Rio Tinto Ventures"
+      url: "https://riotinto.com"
+      category: "corporate_venture"
+      priority: 1
 
 # Google Sheets Configuration
 google_sheets:
@@ -71,6 +96,7 @@ company_fields:
     - latest_round_amount_usd
     - latest_round_date
     - funding_trajectory
+    - valuation
   
   product:
     - business_model
@@ -98,19 +124,33 @@ event_types:
 
 # Merge Configuration (Skill 2)
 merge_strategy:
-  # Confidence thresholds for automatic merging
-  auto_merge_threshold: 0.95      # >= 0.95: auto-merge without review
-  decision_logic_threshold: 0.85  # 0.85-0.95: apply decision logic
-  discard_threshold: 0.70         # < 0.70: discard low-confidence values
+  # Cross-validation based merging
+  # Rule: If 2+ trusted sources agree, AUTO-MERGE immediately. No human review needed.
+  # Trusted sources (authoritative, must be verified):
+  # - Official company website
+  # - LinkedIn company profile
+  # - Official investor/VC announcements
+  # - Press releases
+  # - SEC filings (if applicable)
   
-  # Source authority ranking (for decision logic)
-  source_authority:
-    official_website: 1.0
-    linkedin: 0.9
-    press_release: 0.85
-    news_article: 0.8
-    social_media: 0.7
-    rumor: 0.5
+  trusted_sources:
+    - official_website
+    - linkedin_company_profile
+    - investor_official_announcement
+    - press_release
+    - sec_filing
+  
+  # Merge rules
+  merge_policy:
+    cross_validated: "AUTO-MERGE"  # 2+ trusted sources agree → merge immediately
+    single_source_official: "ACCEPT"  # 1 trusted source → accept if authoritative
+    low_confidence: "DISCARD_AND_LOG"  # Unverified sources → discard, log reason
+  
+  # Critical constraint: NO HALLUCINATION
+  source_requirement: "MUST_HAVE_ACTUAL_VERIFIABLE_SOURCE"
+  unknown_fields: "LEAVE_EMPTY"  # If source unclear, leave blank rather than guess
+  
+  # Fallback: If confidence < 50%, require source verification
 
 # Scraping Targets (Skill 2)
 scrape_targets:
@@ -122,11 +162,18 @@ scrape_targets:
 
 # Scheduling
 schedule:
-  cron: "0 18 * * *"  # 18:00 UTC daily
+  cron: "0 18 * * *"  # 18:00 EST daily (UTC-5, or UTC-4 during EDT)
+  timezone: "America/New_York"
   expected_duration:
-    skill_1: 15  # minutes
-    skill_2: 45  # minutes (varies with company count)
-    skill_3: 10  # minutes
+    skill_1: 15  # minutes (discovery)
+    skill_2: 45  # minutes (research, varies with company count)
+    skill_3: 10  # minutes (dashboard export)
+  
+  # Run order (sequential, no parallelization)
+  run_order:
+    - skill_1: competitor-discovery
+    - skill_2: competitor-research
+    - skill_3: competitor-dashboard
 
 # GitHub Integration (Skill 3)
 github:
