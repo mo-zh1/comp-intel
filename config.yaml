@@ -1,0 +1,154 @@
+# Competitor Intelligence Pipeline Configuration
+
+# Data Sources for Discovery (Skill 1)
+data_sources:
+  mining_industry_news:
+    - name: "mining.com"
+      url: "https://mining.com"
+      category: "mining_news"
+      priority: 1
+    
+    - name: "mining-weekly.com"
+      url: "https://miningweekly.com"
+      category: "mining_news"
+      priority: 1
+    
+    - name: "discoveryalert.com.au"
+      url: "https://discoveryalert.com.au"
+      category: "exploration_news"
+      priority: 1
+  
+  regulatory_data:
+    - name: "USGS Periodicals"
+      url: "https://pubs.usgs.gov/periodicals/"
+      category: "mineral_production"
+      priority: 2
+    
+    - name: "Canada Natural Resources"
+      url: "https://natural-resources.canada.ca"
+      category: "mining_data"
+      priority: 2
+  
+  academic:
+    - name: "arXiv (geology + AI)"
+      url: "https://arxiv.org"
+      categories: ["geo-ph", "cs.LG"]
+      priority: 3
+  
+  investor_portfolios:
+    - name: "LinkedIn Mining Ventures"
+      url: "https://linkedin.com"
+      search_terms: ["mining ventures", "mineral tech", "critical minerals"]
+      priority: 2
+
+# Google Sheets Configuration
+google_sheets:
+  sheet_id: "YOUR_SHEET_ID_HERE"  # Will be set at runtime
+  tabs:
+    companies: "companies"
+    events: "events"
+    update_log: "update_log"
+    raw_signals: "raw_signals"
+    discovery_queue: "discovery_queue"
+
+# Company Fields to Track
+company_fields:
+  core:
+    - canonical_name
+    - website
+    - linkedin_url
+    - founded_year
+    - hq_city
+    - hq_country
+  
+  team:
+    - founders
+    - team_size
+  
+  capital:
+    - investors
+    - latest_round_type
+    - latest_round_amount_usd
+    - latest_round_date
+    - funding_trajectory
+  
+  product:
+    - business_model
+    - technical_stage
+    - core_product
+    - pricing_model
+    - target_customer
+  
+  metadata:
+    - status  # active, acquired, stealth, related, discovered
+    - last_updated
+    - confidence_score
+    - discovered_source
+
+# Event Types to Track (Skill 2)
+event_types:
+  - funding_round
+  - acquisition
+  - leadership_change
+  - product_launch
+  - partnership
+  - hiring_surge
+  - expansion
+  - news_mention
+
+# Merge Configuration (Skill 2)
+merge_strategy:
+  # Confidence thresholds for automatic merging
+  auto_merge_threshold: 0.95      # >= 0.95: auto-merge without review
+  decision_logic_threshold: 0.85  # 0.85-0.95: apply decision logic
+  discard_threshold: 0.70         # < 0.70: discard low-confidence values
+  
+  # Source authority ranking (for decision logic)
+  source_authority:
+    official_website: 1.0
+    linkedin: 0.9
+    press_release: 0.85
+    news_article: 0.8
+    social_media: 0.7
+    rumor: 0.5
+
+# Scraping Targets (Skill 2)
+scrape_targets:
+  - company_website
+  - linkedin_company_profile
+  - news_search
+  - job_postings
+  - team_pages
+
+# Scheduling
+schedule:
+  cron: "0 18 * * *"  # 18:00 UTC daily
+  expected_duration:
+    skill_1: 15  # minutes
+    skill_2: 45  # minutes (varies with company count)
+    skill_3: 10  # minutes
+
+# GitHub Integration (Skill 3)
+github:
+  enabled: true
+  repo: "mohan-competitive-intelligence"
+  branch: "main"
+  push_targets:
+    - path: "/data/competitors.csv"
+      source: "companies_tab"
+    - path: "/data/events.csv"
+      source: "events_tab"
+    - path: "/data/update_log.csv"
+      source: "update_log_tab"
+    - path: "/dashboard/index.html"
+      source: "generated_html"
+  
+  archive_path: "/data/archive/"
+  commit_message_template: "[auto] daily update — {date}"
+
+# Logging
+logging:
+  level: "INFO"
+  file: "logs/pipeline.log"
+  retention_days: 30
+
