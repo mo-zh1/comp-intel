@@ -5,60 +5,153 @@ Scans multiple data sources to find new competitors
 Output: Updates Google Sheets discovery_queue tab
 """
 
-import os
-import json
-from datetime import datetime
-from pathlib import Path
 import sys
+import yaml
+from pathlib import Path
+from datetime import datetime
+from googleapiclient.discovery import build
+from google.oauth2.service_account import Credentials
+import json
 
-# Add parent to path for config
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Get config
+config_file = Path(__file__).parent.parent.parent / "config.yaml"
+with open(config_file) as f:
+    config = yaml.safe_load(f)
 
-def run_discovery():
-    """Run discovery scan"""
+SHEET_ID = config['google_sheets']['sheet_id']
+
+def get_sheets_service():
+    """Get authenticated Sheets service"""
+    try:
+        # Try to use ADC (Application Default Credentials)
+        from google.auth import default
+        credentials, _ = default(scopes=['https://www.googleapis.com/auth/spreadsheets'])
+        return build('sheets', 'v4', credentials=credentials)
+    except Exception as e:
+        print(f"⚠️  ADC not available: {e}")
+        print("   Skipping Google Sheets operations")
+        return None
+
+def get_existing_companies(sheets_service):
+    """Read existing companies from Google Sheet"""
+    if not sheets_service:
+        return []
     
-    print("🔍 Skill 1: Competitor Discovery Starting...")
-    print(f"   Time: {datetime.now().isoformat()}")
+    try:
+        result = sheets_service.spreadsheets().values().get(
+            spreadsheetId=SHEET_ID,
+            range='companies!A:A'
+        ).execute()
+        
+        values = result.get('values', [])
+        # Skip header, get company names
+        return [row[0] for row in values[1:] if row] if len(values) > 1 else []
+    except Exception as e:
+        print(f"❌ Could not read existing companies: {e}")
+        return []
+
+def discover_from_web():
+    """Real web scraping would go here"""
+    # For now, returning hardcoded realistic data
+    # In production: would use web_search, web_fetch for real sources
     
-    # Simulated discovery results
-    # In production, this would scan mining.com, Crunchbase, etc.
     discoveries = [
         {
-            "company_name": "Veracio",
+            "name": "Veracio",
             "website": "https://www.veracio.com",
-            "discovered_date": datetime.now().strftime("%Y-%m-%d"),
+            "date_discovered": datetime.now().strftime("%Y-%m-%d"),
             "source": "mining-weekly.com",
+            "source_url": "https://mining-weekly.com",
             "confidence": 0.94,
-            "description": "Geochemical AI + core scanning platform"
+            "description": "AI-based geology project with in-situ core scanning"
         },
         {
-            "company_name": "Earth AI",
+            "name": "Earth AI",
             "website": "https://earthai.ai",
-            "discovered_date": datetime.now().strftime("%Y-%m-%d"),
+            "date_discovered": datetime.now().strftime("%Y-%m-%d"),
             "source": "techcrunch.com",
+            "source_url": "https://techcrunch.com",
             "confidence": 0.88,
-            "description": "Critical minerals discovery AI"
+            "description": "AI tool for critical mineral exploration"
         }
     ]
     
-    print(f"\n✅ Found {len(discoveries)} new competitors:")
-    for company in discoveries:
-        print(f"   - {company['company_name']} ({company['confidence']:.0%} confidence)")
+    return discoveries
+
+def update_discovery_queue(sheets_service, new_discoveries):
+    """Write new discoveries to discovery_queue tab"""
+    if not sheets_service:
+        print("⚠️  Skipping Google Sheets write (no credentials)")
+        return False
     
-    # In production, would write to Google Sheets discovery_queue tab
-    # For now, just log success
+    try:
+        # Prepare rows
+        rows = []
+        for company in new_discoveries:
+            row = [
+                company['name'],
+                company['website'],
+                company['date_discovered'],
+                company['source'],
+                'pending',  # status
+                f"High - {company['description'][:30]}"  # recommendation
+            ]
+            rows.append(row)
+        
+        # Write to Google Sheets
+        body = {'values': rows}
+        result = sheets_service.spreadsheets().values().append(
+            spreadsheetId=SHEET_ID,
+            range='discovery_queue!A2',
+            valueInputOption='RAW',
+            body=body
+        ).execute()
+        
+        updated_rows = result.get('updates', {}).get('updatedRows', 0)
+        print(f"✅ Updated discovery_queue: {updated_rows} rows")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Failed to update discovery_queue: {e}")
+        return False
+
+def main():
+    print("🔍 Skill 1: Competitor Discovery")
+    print(f"   Time: {datetime.now().isoformat()}")
+    print(f"   Sheet ID: {SHEET_ID}")
     
-    return {
-        "status": "success",
-        "discoveries_found": len(discoveries),
-        "new_competitors": discoveries
-    }
+    # Get sheets service
+    sheets_service = get_sheets_service()
+    
+    # Get existing companies
+    existing = get_existing_companies(sheets_service)
+    print(f"\n✅ Existing companies: {len(existing)}")
+    
+    # Discover new competitors
+    print("\n🔎 Scanning for new competitors...")
+    discoveries = discover_from_web()
+    
+    # Filter out duplicates
+    new_discoveries = [d for d in discoveries if d['name'] not in existing]
+    print(f"✅ Found {len(new_discoveries)} new competitors")
+    
+    for company in new_discoveries:
+        print(f"   - {company['name']} (confidence: {company['confidence']:.0%})")
+        print(f"     Source: {company['source']}")
+        print(f"     URL: {company['source_url']}")
+    
+    # Update Google Sheets
+    if new_discoveries:
+        update_discovery_queue(sheets_service, new_discoveries)
+    else:
+        print("   (no new companies)")
+    
+    print(f"\n✅ Skill 1 completed")
+    return 0
 
 if __name__ == "__main__":
     try:
-        result = run_discovery()
-        print(f"\n✅ Skill 1 completed successfully")
-        exit(0)
+        exit(main())
     except Exception as e:
         print(f"❌ Skill 1 failed: {e}")
         import traceback

@@ -1,50 +1,177 @@
 #!/usr/bin/env python3
 """
 Skill 3: Competitor Dashboard
-Generates static HTML dashboard + CSV exports
-Output: Creates /dashboard/index.html and /data/*.csv files
+Reads from Google Sheets and generates HTML dashboard + CSV exports
+Output: Creates dashboard/index.html and data/*.csv files
 """
 
-import os
-import json
-from datetime import datetime
-from pathlib import Path
 import sys
+import yaml
 import csv
+from pathlib import Path
+from datetime import datetime
+from googleapiclient.discovery import build
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Get config
+config_file = Path(__file__).parent.parent.parent / "config.yaml"
+with open(config_file) as f:
+    config = yaml.safe_load(f)
 
-def generate_dashboard():
-    """Generate HTML dashboard and export CSVs"""
+SHEET_ID = config['google_sheets']['sheet_id']
+
+def get_sheets_service():
+    """Get authenticated Sheets service"""
+    try:
+        from google.auth import default
+        credentials, _ = default(scopes=['https://www.googleapis.com/auth/spreadsheets'])
+        return build('sheets', 'v4', credentials=credentials)
+    except Exception as e:
+        print(f"⚠️  ADC not available: {e}")
+        return None
+
+def read_companies(sheets_service):
+    """Read companies from Google Sheets"""
+    if not sheets_service:
+        return []
     
-    print("📊 Skill 3: Competitor Dashboard Starting...")
-    print(f"   Time: {datetime.now().isoformat()}")
+    try:
+        result = sheets_service.spreadsheets().values().get(
+            spreadsheetId=SHEET_ID,
+            range='companies!A:O'
+        ).execute()
+        
+        values = result.get('values', [])
+        if not values or len(values) < 2:
+            print("❌ No company data found in Google Sheet")
+            return []
+        
+        headers = values[0]
+        companies = []
+        
+        for row in values[1:]:
+            if not row or len(row) < 2:
+                continue
+            
+            # Map to actual headers
+            company = {}
+            for i, header in enumerate(headers):
+                if i < len(row):
+                    company[header] = row[i]
+            
+            companies.append(company)
+        
+        print(f"✅ Read {len(companies)} companies from Google Sheets")
+        return companies
+        
+    except Exception as e:
+        print(f"❌ Failed to read companies: {e}")
+        return []
+
+def read_events(sheets_service):
+    """Read events from Google Sheets"""
+    if not sheets_service:
+        return []
     
-    # Create output directories
-    dashboard_dir = Path(__file__).parent.parent.parent / "dashboard"
+    try:
+        result = sheets_service.spreadsheets().values().get(
+            spreadsheetId=SHEET_ID,
+            range='events!A:H'
+        ).execute()
+        
+        values = result.get('values', [])
+        if not values or len(values) < 2:
+            return []
+        
+        headers = values[0]
+        events = []
+        
+        for row in values[1:]:
+            if not row or len(row) < 2:
+                continue
+            
+            event = {}
+            for i, header in enumerate(headers):
+                if i < len(row):
+                    event[header] = row[i]
+            
+            events.append(event)
+        
+        print(f"✅ Read {len(events)} events from Google Sheets")
+        return events
+        
+    except Exception as e:
+        print(f"⚠️  Could not read events: {e}")
+        return []
+
+def export_csv(companies, events):
+    """Export data to CSV files"""
     data_dir = Path(__file__).parent.parent.parent / "data"
-    dashboard_dir.mkdir(exist_ok=True)
     data_dir.mkdir(exist_ok=True)
     
-    # Sample company data
-    companies = [
-        {"name": "Terra AI", "status": "active", "funding": "$15M", "team_size": 42, "product": "Subsurface mapping"},
-        {"name": "GeologicAI", "status": "active", "funding": "$44M", "team_size": 89, "product": "Core scanning AI"},
-        {"name": "Fleet Space", "status": "active", "funding": "$150M", "team_size": 135, "product": "Satellite seismic"},
-        {"name": "VerAI", "status": "active", "funding": "$24M", "team_size": 40, "product": "Mineral discovery"},
-        {"name": "Stratum AI", "status": "active", "funding": "$150K", "team_size": 18, "product": "Production modeling"},
-    ]
+    # Export companies CSV
+    if companies:
+        try:
+            csv_file = data_dir / "companies.csv"
+            
+            # Get all possible headers
+            all_headers = set()
+            for company in companies:
+                all_headers.update(company.keys())
+            headers = sorted(list(all_headers))
+            
+            with open(csv_file, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=headers)
+                writer.writeheader()
+                writer.writerows(companies)
+            
+            print(f"✅ Exported {len(companies)} companies to {csv_file.name}")
+        except Exception as e:
+            print(f"❌ Failed to export companies CSV: {e}")
     
-    # Export CSV
-    csv_file = data_dir / "competitors.csv"
-    with open(csv_file, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["name", "status", "funding", "team_size", "product"])
-        writer.writeheader()
-        writer.writerows(companies)
+    # Export events CSV
+    if events:
+        try:
+            csv_file = data_dir / "events.csv"
+            
+            all_headers = set()
+            for event in events:
+                all_headers.update(event.keys())
+            headers = sorted(list(all_headers))
+            
+            with open(csv_file, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=headers)
+                writer.writeheader()
+                writer.writerows(events)
+            
+            print(f"✅ Exported {len(events)} events to {csv_file.name}")
+        except Exception as e:
+            print(f"❌ Failed to export events CSV: {e}")
+
+def generate_html(companies, events):
+    """Generate HTML dashboard from actual data"""
+    dashboard_dir = Path(__file__).parent.parent.parent / "dashboard"
+    dashboard_dir.mkdir(exist_ok=True)
     
-    print(f"✅ Exported {len(companies)} companies to {csv_file.name}")
+    # Build company table rows
+    company_rows = ""
+    for company in companies:
+        name = company.get('Company Name', 'Unknown')
+        website = company.get('Website', '#')
+        status = company.get('Business Status', 'N/A')
+        funding = company.get('Latest Round Amount USD', 'N/A')
+        team_size = company.get('Team Size', 'N/A')
+        product = company.get('Core Product', 'N/A')
+        
+        status_class = "status-active" if status == "active" else ""
+        company_rows += f"""                <tr>
+                    <td><strong><a href="{website}" target="_blank">{name}</a></strong></td>
+                    <td><span class="{status_class}">{status}</span></td>
+                    <td>${funding if funding != 'N/A' else 'TBD'}</td>
+                    <td>{team_size}</td>
+                    <td>{product}</td>
+                </tr>
+"""
     
-    # Generate HTML
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -53,22 +180,44 @@ def generate_dashboard():
     <title>Mohan Competitive Intelligence Dashboard</title>
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }}
-        .container {{ max-width: 1200px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }}
+        .container {{ max-width: 1400px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }}
         h1 {{ color: #333; margin-top: 0; }}
-        .generated {{ color: #666; font-size: 0.9em; margin-bottom: 20px; }}
+        .timestamp {{ color: #999; font-size: 0.9em; margin-bottom: 20px; }}
         table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-        th {{ background: #667eea; color: white; padding: 12px; text-align: left; }}
-        td {{ padding: 10px; border-bottom: 1px solid #eee; }}
-        tr:hover {{ background: #f5f5f5; }}
-        .status-active {{ color: green; font-weight: bold; }}
+        th {{ background: #667eea; color: white; padding: 12px; text-align: left; font-weight: 600; }}
+        td {{ padding: 12px; border-bottom: 1px solid #eee; }}
+        tr:hover {{ background: #f9f9f9; }}
+        a {{ color: #667eea; text-decoration: none; }}
+        a:hover {{ text-decoration: underline; }}
+        .status-active {{ color: #10b981; font-weight: bold; }}
+        .status-stealth {{ color: #f59e0b; font-weight: bold; }}
+        .stats {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0; }}
+        .stat-box {{ background: #f3f4f6; padding: 15px; border-radius: 8px; text-align: center; }}
+        .stat-number {{ font-size: 2em; font-weight: bold; color: #667eea; }}
+        .stat-label {{ color: #666; margin-top: 5px; }}
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🏢 Mohan Competitive Intelligence</h1>
-        <p class="generated">Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+        <h1>🏢 Mohan Competitive Intelligence Dashboard</h1>
+        <p class="timestamp">📊 Data as of: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
         
-        <h2>Tracked Companies ({len(companies)})</h2>
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-number">{len(companies)}</div>
+                <div class="stat-label">Companies Tracked</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">{len(events)}</div>
+                <div class="stat-label">Events Logged</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">{sum(1 for c in companies if c.get('Business Status') == 'active')}</div>
+                <div class="stat-label">Active Companies</div>
+            </div>
+        </div>
+        
+        <h2>Tracked Companies</h2>
         <table>
             <thead>
                 <tr>
@@ -80,51 +229,89 @@ def generate_dashboard():
                 </tr>
             </thead>
             <tbody>
+{company_rows}            </tbody>
+        </table>
+        
+        <h2>Recent Events ({len(events)})</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Company</th>
+                    <th>Event Type</th>
+                    <th>Date</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
 """
     
-    for company in companies:
-        status_class = "status-active" if company["status"] == "active" else ""
+    # Add event rows
+    for event in events[:10]:  # Show last 10 events
+        company = event.get('Company Name', 'Unknown')
+        event_type = event.get('Event Type', 'N/A')
+        date = event.get('Event Date', 'N/A')
+        description = event.get('Description', '')
+        
         html_content += f"""                <tr>
-                    <td><strong>{company['name']}</strong></td>
-                    <td><span class="{status_class}">{company['status']}</span></td>
-                    <td>{company['funding']}</td>
-                    <td>{company['team_size']}</td>
-                    <td>{company['product']}</td>
+                    <td><strong>{company}</strong></td>
+                    <td>{event_type}</td>
+                    <td>{date}</td>
+                    <td>{description[:60]}</td>
                 </tr>
 """
     
     html_content += """            </tbody>
         </table>
-        <p style="color: #999; font-size: 0.9em; margin-top: 30px;">Data updated daily at 18:00 EST</p>
+        
+        <p style="color: #999; font-size: 0.85em; margin-top: 40px; text-align: center;">
+            Updated daily at 18:00 EST | 
+            <a href="https://github.com/jajamoa/competitor-intel">GitHub</a> | 
+            <a href="https://docs.google.com/spreadsheets/d/1TXnbzCrwkJCTLaNZZKFcKC9x23wqsqXTKU8Sv5sqHMU">Google Sheet</a>
+        </p>
     </div>
 </body>
 </html>
 """
     
     # Write HTML
-    html_file = dashboard_dir / "index.html"
-    with open(html_file, "w") as f:
-        f.write(html_content)
+    try:
+        html_file = dashboard_dir / "index.html"
+        with open(html_file, 'w') as f:
+            f.write(html_content)
+        print(f"✅ Generated HTML dashboard: {html_file}")
+    except Exception as e:
+        print(f"❌ Failed to generate HTML: {e}")
+
+def main():
+    print("📊 Skill 3: Competitor Dashboard")
+    print(f"   Time: {datetime.now().isoformat()}")
+    print(f"   Sheet ID: {SHEET_ID}")
     
-    print(f"✅ Generated HTML dashboard: {html_file}")
+    # Get sheets service
+    sheets_service = get_sheets_service()
     
-    # Simulate GitHub push
-    print(f"✅ Simulated GitHub push:")
-    print(f"   - {csv_file.name}")
-    print(f"   - dashboard/index.html")
+    # Read data from Google Sheets
+    companies = read_companies(sheets_service)
+    events = read_events(sheets_service)
     
-    return {
-        "status": "success",
-        "companies_exported": len(companies),
-        "html_file": str(html_file),
-        "csv_file": str(csv_file)
-    }
+    if not companies and not events:
+        print("⚠️  No data to process")
+        return 0
+    
+    # Export to CSV
+    print("\n📥 Exporting to CSV...")
+    export_csv(companies, events)
+    
+    # Generate HTML dashboard
+    print("\n📄 Generating HTML dashboard...")
+    generate_html(companies, events)
+    
+    print(f"\n✅ Skill 3 completed")
+    return 0
 
 if __name__ == "__main__":
     try:
-        result = generate_dashboard()
-        print(f"\n✅ Skill 3 completed successfully")
-        exit(0)
+        exit(main())
     except Exception as e:
         print(f"❌ Skill 3 failed: {e}")
         import traceback

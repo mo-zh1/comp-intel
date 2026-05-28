@@ -1,18 +1,18 @@
-[2026-05-27T20:29:57.613837] ============================================================
-[2026-05-27T20:29:57.614046] MOHAN COMPETITIVE INTELLIGENCE PIPELINE — Daily Run
-[2026-05-27T20:29:57.614106] ============================================================
-[2026-05-27T20:29:57.625321] 📊 Using Google Sheet: 1TXnbzCrwkJCTLaNZZKFcKC9x23wqsqXTKU8Sv5sqHMU
-[2026-05-27T20:29:57.625406] 🚀 Starting Skill 1: Competitor Discovery...
-[2026-05-27T20:29:57.662177] ✅ Skill 1: Competitor Discovery completed in 0.0s
-[2026-05-27T20:29:57.662355] 🚀 Starting Skill 2: Competitor Research...
-[2026-05-27T20:29:57.686379] ✅ Skill 2: Competitor Research completed in 0.0s
-[2026-05-27T20:29:57.686516] 🚀 Starting Skill 3: Competitor Dashboard...
-[2026-05-27T20:29:57.707985] ✅ Skill 3: Competitor Dashboard completed in 0.0s
-[2026-05-27T20:29:57.708070] ============================================================
-[2026-05-27T20:29:57.708101] PIPELINE SUMMARY
-[2026-05-27T20:29:57.708128]   Skill 1: Competitor Discovery: SUCCESS
-[2026-05-27T20:29:57.708156]   Skill 2: Competitor Research: SUCCESS
-[2026-05-27T20:29:57.708184]   Skill 3: Competitor Dashboard: SUCCESS
-[2026-05-27T20:29:57.708208] Total time: 0.1s
-[2026-05-27T20:29:57.708232] ============================================================
-[2026-05-27T20:29:57.708262] ✅ Daily pipeline completed successfully
+[2026-05-27T22:45:09.029489] ============================================================
+[2026-05-27T22:45:09.029637] MOHAN COMPETITIVE INTELLIGENCE PIPELINE — Daily Run
+[2026-05-27T22:45:09.029680] ============================================================
+[2026-05-27T22:45:09.037797] 📊 Using Google Sheet: 1TXnbzCrwkJCTLaNZZKFcKC9x23wqsqXTKU8Sv5sqHMU
+[2026-05-27T22:45:09.037865] 🚀 Starting Skill 1: Competitor Discovery...
+[2026-05-27T22:45:18.551205] ✅ Skill 1: Competitor Discovery completed in 9.5s
+[2026-05-27T22:45:18.552075] 🚀 Starting Skill 2: Competitor Research...
+[2026-05-27T22:45:22.226637] ✅ Skill 2: Competitor Research completed in 3.7s
+[2026-05-27T22:45:22.227119] 🚀 Starting Skill 3: Competitor Dashboard...
+[2026-05-27T22:45:25.776992] ✅ Skill 3: Competitor Dashboard completed in 3.5s
+[2026-05-27T22:45:25.777777] ============================================================
+[2026-05-27T22:45:25.777863] PIPELINE SUMMARY
+[2026-05-27T22:45:25.777934]   Skill 1: Competitor Discovery: SUCCESS
+[2026-05-27T22:45:25.777993]   Skill 2: Competitor Research: SUCCESS
+[2026-05-27T22:45:25.778051]   Skill 3: Competitor Dashboard: SUCCESS
+[2026-05-27T22:45:25.778114] Total time: 16.7s
+[2026-05-27T22:45:25.778164] ============================================================
+[2026-05-27T22:45:25.778228] ✅ Daily pipeline completed successfully
