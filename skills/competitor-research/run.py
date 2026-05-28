@@ -21,12 +21,12 @@ SHEET_ID = config['google_sheets']['sheet_id']
 
 def get_sheets_service():
     """Get authenticated Sheets service"""
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
     try:
-        from google.auth import default
-        credentials, _ = default(scopes=['https://www.googleapis.com/auth/spreadsheets'])
-        return build('sheets', 'v4', credentials=credentials)
+        from auth_helper import build_sheets_service
+        return build_sheets_service()
     except Exception as e:
-        print(f"⚠️  ADC not available: {e}")
+        print(f"⚠️  Could not build Sheets service: {e}")
         return None
 
 def read_companies(sheets_service):
