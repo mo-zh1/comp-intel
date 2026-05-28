@@ -68,7 +68,7 @@ data_sources:
 
 # Google Sheets Configuration
 google_sheets:
-  sheet_id: "YOUR_SHEET_ID_HERE"  # Will be set at runtime
+  sheet_id: "1TXnbzCrwkJCTLaNZZKFcKC9x23wqsqXTKU8Sv5sqHMU"
   tabs:
     companies: "companies"
     events: "events"
