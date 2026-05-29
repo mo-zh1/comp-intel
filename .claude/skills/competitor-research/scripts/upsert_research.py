@@ -1,33 +1,33 @@
 #!/usr/bin/env python3
 """
-Skill 2 tool — upsert deep-research field updates into the Google Sheet.
+Apply deep-research field updates to the tracker Google Sheet.
 
-The agent (Claude) researches each company (web search) and extracts field
-values. This script is a thin, deterministic writer that applies those updates
-cleanly. It invents nothing.
+This is a thin, deterministic writer. The agent does the web research and decides
+the field values; this script writes them cleanly. It invents nothing.
 
 Usage:
     echo '[{"company": "Earth AI",
             "fields": {"Founders": "Roman Teslyuk",
                        "Latest Round": "Series B $24M",
                        "Valuation": ""}}]' \
-        | python run.py
+        | python scripts/upsert_research.py
 
-Input: a JSON list of {"company": <name>, "fields": {<header>: <value>}}.
+Input: a JSON list of {"company": <name>, "fields": {<column>: <value>}}.
 
-Behaviour (clean update):
+Clean-update behaviour:
   - matches an existing row by "Company Name" (case-insensitive)
   - creates a new row if the company is not present yet
   - only writes fields whose column exists in the header
   - never overwrites a non-empty existing value with an empty one
   - skips writes where the value is unchanged
+  - prints a JSON summary {updated, created, skipped_fields, failed}
 """
 
 import json
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from google_sheet_api import sheet_api
 
 
@@ -57,9 +57,8 @@ def main() -> int:
     col_of = {h.strip().lower(): i for i, h in enumerate(header)}
 
     rows = sheet_api.read_rows()
-    # name(lower) -> (sheet_row_1indexed, row_values)
     index = {}
-    for i, r in enumerate(rows[1:], start=2):
+    for i, r in enumerate(rows[1:], start=2):  # sheet rows are 1-indexed; data starts at row 2
         if len(r) > name_idx and str(r[name_idx]).strip():
             index[str(r[name_idx]).strip().lower()] = (i, r)
 
@@ -73,7 +72,6 @@ def main() -> int:
         if not name:
             continue
 
-        # Keep only fields that map to a real column.
         clean = {}
         for k, v in fields.items():
             ci = col_of.get(str(k).strip().lower())
@@ -84,7 +82,6 @@ def main() -> int:
 
         key = name.lower()
         if key not in index:
-            # New row: build aligned to header (Company Name + provided fields).
             row = ["" for _ in header]
             row[name_idx] = name
             for ci, val in clean.items():
@@ -99,10 +96,8 @@ def main() -> int:
         changed = []
         for ci, val in clean.items():
             old = str(current[ci]).strip() if len(current) > ci else ""
-            if val == "":
-                continue  # never blank out an existing value
-            if val == old:
-                continue  # unchanged
+            if val == "" or val == old:
+                continue  # never blank out an existing value; skip unchanged
             if sheet_api.update_cell(sheet_row, ci + 1, val):
                 changed.append(header[ci])
             else:
@@ -117,7 +112,7 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except Exception as e:
+    except Exception:
         import traceback
         traceback.print_exc()
         sys.exit(1)

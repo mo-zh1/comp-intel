@@ -1,30 +1,31 @@
 #!/usr/bin/env python3
 """
-Skill 1 tool — append newly-discovered competitors to the Google Sheet.
+Append newly-discovered competitors to the tracker Google Sheet.
 
-The agent (Claude) performs the web search and decides which companies are new.
-This script is a thin, deterministic writer: it takes that result as JSON on
-stdin and appends genuinely-new rows. It invents nothing.
+This is a thin, deterministic writer. The agent does the web search/verification
+and decides which companies are genuinely new; this script only writes them.
+It invents nothing.
 
 Usage:
     echo '[{"Company Name": "Earth AI", "Website": "https://earthai.ai"}]' \
-        | python run.py
+        | python scripts/append_companies.py
 
-Input: a JSON list of objects (or {"companies": [...]}). Object keys should match
-the sheet header (e.g. "Company Name", "Website"). Aliases accepted:
-name -> Company Name, company -> Company Name, url -> Website.
+Input: a JSON list of objects (or {"companies": [...]}). Keys should match the
+sheet header (e.g. "Company Name", "Website"). Aliases: name/company -> Company Name,
+url -> Website.
 
 Behaviour:
-  - reads the current header and rows from the sheet
+  - reads the current header + rows
   - skips companies already present (case-insensitive "Company Name" match)
-  - appends the rest as rows aligned to the current header; unknown fields blank
+  - appends the rest as rows aligned to the header; unknown columns left blank
+  - prints a JSON summary {appended, skipped_existing, failed}
 """
 
 import json
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from google_sheet_api import sheet_api
 
 ALIASES = {
@@ -101,7 +102,7 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except Exception as e:
+    except Exception:
         import traceback
         traceback.print_exc()
         sys.exit(1)

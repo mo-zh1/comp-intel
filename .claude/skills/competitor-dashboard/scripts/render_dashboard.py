@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
-Skill 3 tool — render a dashboard from the live Google Sheet.
+Render the competitor tracker into a CSV snapshot + interactive HTML dashboard.
 
-Reads the current sheet (header + rows), then writes:
+Reads the live Google Sheet (header + rows) and writes, at the project root:
   data/competitors.csv      CSV snapshot of the sheet
   dashboard/index.html      self-contained searchable HTML table
 
 Columns are taken from the sheet header at runtime — nothing is hardcoded.
+
+Usage:
+    python scripts/render_dashboard.py
 """
 
 import csv
@@ -16,10 +19,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from google_sheet_api import sheet_api
 
-ROOT = Path(__file__).resolve().parents[2]
+# scripts -> competitor-dashboard -> skills -> .claude -> project root
+ROOT = Path(__file__).resolve().parents[4]
 
 
 def non_empty(row):
@@ -29,14 +33,14 @@ def non_empty(row):
 def build_html(header, rows):
     updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     thead = "".join(f"<th>{html.escape(str(h))}</th>" for h in header)
-    body_rows = []
+    body = []
     for r in rows:
-        cells = []
-        for i, _ in enumerate(header):
-            val = str(r[i]).strip() if i < len(r) else ""
-            cells.append(f"<td>{html.escape(val)}</td>")
-        body_rows.append("<tr>" + "".join(cells) + "</tr>")
-    tbody = "\n".join(body_rows)
+        cells = "".join(
+            f"<td>{html.escape(str(r[i]).strip() if i < len(r) else '')}</td>"
+            for i in range(len(header))
+        )
+        body.append(f"<tr>{cells}</tr>")
+    tbody = "\n".join(body)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -112,7 +116,7 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except Exception as e:
+    except Exception:
         import traceback
         traceback.print_exc()
         sys.exit(1)

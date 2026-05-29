@@ -1,7 +1,7 @@
 """
-Google Sheet HTTP API wrapper (Apps Script Web App backend).
+Shared Google Sheet client for the competitor-intel skills.
 
-The deployed Apps Script supports these operations (rows/cols are 1-indexed):
+Backed by a deployed Apps Script Web App (rows/cols are 1-indexed):
   GET                                                   -> all rows as a 2D list
   POST {action:"update_cell", row, col, value}          -> set one cell
   POST {action:"update_row_by_key", keyCol, keyValue,   -> set one cell in the
@@ -9,6 +9,7 @@ The deployed Apps Script supports these operations (rows/cols are 1-indexed):
   POST {action:"append", rowData:[...]}                 -> append a row
 
 Pure stdlib (urllib) so the skills run with no third-party dependencies.
+All three skills import `sheet_api` from this module.
 """
 
 import json
