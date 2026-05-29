@@ -28,21 +28,23 @@ python scripts/list_companies.py --missing-only
 
 This prints each company with its current values and a `missing_fields` list. Prioritise empty fields, but you may also re-verify stale ones.
 
-2. **Research each company (WebSearch → WebFetch).** For each company, search for the fields below, then fetch a primary source to confirm. Cross-check at least two independent sources for funding/valuation where possible. Capture the value only when a real source supports it.
+2. **Research each company (WebSearch → WebFetch).** For each company, search broadly, then fetch the primary sources to confirm each field. Cross-check **2+ independent sources** for funding/valuation. Capture a value only when a real source supports it, and keep the URLs you actually used — they go in the `source：` field.
 
-3. **Write clean updates.** Pipe the results as JSON to the upsert script:
+3. **Write clean updates.** Pipe the results as JSON to the upsert script. Field values should be **rich and analytical** (see depth note below), and may mix English + 中文:
 
 ```bash
 echo '[{"company": "Terra AI",
         "fields": {
-          "Founders": "John Mern (CEO, Stanford PhD), Anthony Corso (CTO, Stanford PhD)",
+          "Founders": "John Mern (CEO, Stanford PhD - SISL), Anthony Corso (CTO, Stanford PhD)",
           "Founded Year": "2023",
-          "Business Model": "Enterprise B2B AI platform (SaaS) for mining & energy majors",
-          "Technical stage": "Diffusion/generative subsurface models + reasoning agent for campaign planning",
-          "Latest Round": "Seed · $3.39M · Oct 2023",
-          "Funding Trajectory": "NSF grants -> Seed $3.39M (2023, Khosla) -> Rio Tinto strategic (2025) -> Series A announced",
-          "Investors": "Khosla Ventures (lead), Rio Tinto (strategic), Plug and Play, Climate Capital, NSF",
-          "Valuation": ""
+          "Business Model": "Enterprise B2B AI platform (SaaS) — sold via direct sales + strategic partnerships to mining & energy majors",
+          "Technical": "Diffusion / generative models (确认,多源). 生成 millions of possible 3D subsurface models conditioned to match the signal + reasoning agent for campaign planning。数据 = 真实多模态: drill cores + geophysics + geochemistry (合成数据仅作为模型输出,非训练输入)",
+          "stage": "多阶段: Target Screening (greenfield/undercover) + Survey Design + Dynamic Drilling (resource definition)",
+          "Latest Round": "Seed · $3.39M · Oct 2023 (publicly announced 2025 when emerging from stealth)",
+          "Funding Trajectory": "NSF grants → Seed $3.39M (2023, led by Khosla Ventures) → Rio Tinto strategic investment (2025) → Series A upcoming (announced intent, not closed)",
+          "Investors": "Khosla Ventures (lead), Rio Tinto (strategic, 2025), Storyhouse Ventures, Plug and Play, Climate Capital, US NSF",
+          "Valuation": "未公开 (Seed $3.4M 2023, Khosla 领投;无估值披露)",
+          "source：": "https://www.choppingblock.ai/companies/terra-ai\nhttps://www.terraai.com/minerals"
         }}]' \
   | python scripts/upsert_research.py
 ```
@@ -53,21 +55,27 @@ The script matches by Company Name, **never overwrites a non-empty value with an
 
 ## Field guide (the sheet's columns)
 
-Fill these with confirmed, concise values. Match the style of the examples.
+Fill these with confirmed values. The tracker favours **depth over brevity** — match the style of the example above.
 
 - **Company Name** — canonical name (the match key; don't change it).
 - **Website** — official homepage URL.
-- **Founders** — names + role/background, e.g. `Grant Sanden (CEO, U Calgary), Yannai Segal (CSO)`.
-- **Founded Year** — founding year (+ location if useful), e.g. `2013` or `2019 (Toronto, Canada)`.
-- **Business Model** — how they make money / GTM, e.g. `B2B SaaS sold to mining majors via direct sales`.
-- **Technical stage** — the core technology and where in the mining lifecycle it applies, e.g. `CNN on multi-sensor core scans; resource definition stage`.
-- **Latest Round** — most recent round, amount, date, e.g. `Series B · $44M · Jul 2025 (led by Blue Earth Capital)`.
-- **Funding Trajectory** — the funding history in one line, e.g. `Seed -> Series A $30M (2023) -> Series B $44M (2025); ~$74M total`.
-- **Investors** — notable investors, leads marked, e.g. `Breakthrough Energy Ventures (lead), BHP Ventures, Rio Tinto`.
-- **Valuation** — only if publicly reported; otherwise leave empty, e.g. `USD $525M (Series D Dec 2024)` or ``.
+- **Founders** — names + role + background, e.g. `Grant Sanden (CEO, Co-founder, U Calgary), Yannai Segal (CSO, Co-founder)`.
+- **Founded Year** — founding year + location + any pivot history, e.g. `2013 (originally Enersoft, oil & gas; pivoted to mining 2021)`.
+- **Business Model** — how they make money + GTM + positioning, a full descriptive sentence.
+- **Technical** — the core technology in depth: model architecture, data types, what's confirmed vs claimed. This is the richest field; note diffusion / CNN / GNN / foundation-model claims and real vs synthetic data.
+- **stage** — where in the mining lifecycle it applies, e.g. `多阶段: Target Screening (greenfield) + Survey Design + resource definition` or `Production-stage mines + brownfield (NOT greenfield)`.
+- **Latest Round** — most recent round, amount, date, lead, e.g. `Series B · $44M USD · Jul 2025 (led by Blue Earth Capital)`.
+- **Funding Trajectory** — the full funding history in one cell, with totals, e.g. `Seed → Series A $30M (2023) → Series B $44M (2025); ~$74M total`.
+- **Investors** — investors with leads marked + board seats / notable backers.
+- **Valuation** — only if publicly reported; otherwise note `未公开` with brief reason, e.g. `未公开 (Series B $44M, declined to disclose)` or `USD $525M (Series D Dec 2024)`.
+- **source：** — the source URLs you actually fetched, newline-separated. This is the provenance trail; never leave it empty for a researched company.
+
+## Depth and style
+
+Unlike a one-line tracker, this landscape favours **dense, analytical cells** — full sentences, several clauses, and English + 中文 mixed where it sharpens meaning (the existing tracker is bilingual). Mark confidence and provenance inline, e.g. `(确认,多源)`, `⚠️ 不适用`, `(per PitchBook)`. The `Technical` and `Business Model` cells in particular should read like a short analyst note, not a tag.
 
 ## Rules that matter
 
-- **No hallucination.** Only write a value you confirmed from a real source you fetched. Unknown → leave empty (the script will keep any existing value).
+- **No hallucination.** Only write a value you confirmed from a real source you fetched, and record that source in `source：`. Unknown → leave empty (the script keeps any existing value).
 - **Don't blank good data.** Sending `""` for a field is a no-op on existing values by design — use it freely as a placeholder when you don't have an update.
-- **Concise but informative.** One tight line per field, matching the examples; this is a tracker, not a report.
+- **Depth over brevity, but stay sourced.** Rich analysis is good; unsourced speculation is not. Every claim must trace to a URL in `source：`.

@@ -48,7 +48,7 @@ Discovery only supplies two fields; leave everything else for `competitor-resear
 - **Company Name** — the canonical company name (what they call themselves).
 - **Website** — the official homepage URL (prefer the real site over an aggregator page).
 
-The sheet's full column set (managed elsewhere) is: Company Name, Website, Founders, Founded Year, Business Model, Technical stage, Latest Round, Funding Trajectory, Investors, Valuation.
+The sheet's full column set (managed elsewhere) is: Company Name, Website, Founders, Founded Year, Business Model, Technical, stage, Latest Round, Funding Trajectory, Investors, Valuation, source：.
 
 ## Rules that matter
 
