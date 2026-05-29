@@ -1,114 +1,118 @@
 #!/usr/bin/env python3
-"""Skill 3: Competitor Dashboard"""
+"""
+Skill 3 tool — render a dashboard from the live Google Sheet.
 
-import sys
-import os
+Reads the current sheet (header + rows), then writes:
+  data/competitors.csv      CSV snapshot of the sheet
+  dashboard/index.html      self-contained searchable HTML table
+
+Columns are taken from the sheet header at runtime — nothing is hardcoded.
+"""
+
 import csv
-from pathlib import Path
+import html
+import os
+import sys
 from datetime import datetime
+from pathlib import Path
 
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-sys.path.insert(0, parent_dir)
-
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from google_sheet_api import sheet_api
 
-def main():
-    print("📊 Skill 3: Competitor Dashboard")
-    print(f"   Time: {datetime.now().isoformat()}")
-    
-    if not sheet_api.test_connection():
-        print("❌ Cannot connect")
-        return 1
-    
-    print("✅ Connected to Google Sheet")
-    
-    # Sample company data
-    companies = [
-        ["Terra AI", "https://www.terraai.com", "John Merrill", "42", "active"],
-        ["GeologicAI", "https://www.geologicai.com", "Grant Sanden", "89", "active"],
-        ["Fleet Space", "https://www.fleetspace.com", "Flavia Tata", "135", "active"],
-        ["VerAI", "https://ver-ai.com", "Yair Frastai", "40", "active"],
-        ["Stratum AI", "https://stratum.gs", "Farzi Yusufali", "18", "active"],
-    ]
-    
-    # Export CSV
-    print("\n📤 Exporting to CSV...")
-    data_dir = Path(parent_dir) / "data"
-    data_dir.mkdir(exist_ok=True)
-    
-    csv_file = data_dir / "companies.csv"
-    with open(csv_file, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(["Company Name", "Website", "Founders", "Team Size", "Status"])
-        writer.writerows(companies)
-    
-    print(f"✅ Exported {len(companies)} to {csv_file.name}")
-    
-    # Generate HTML
-    print("\n📄 Generating HTML...")
-    dashboard_dir = Path(parent_dir) / "dashboard"
-    dashboard_dir.mkdir(exist_ok=True)
-    
-    html_content = f"""<!DOCTYPE html>
-<html>
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def non_empty(row):
+    return any(str(c).strip() for c in row)
+
+
+def build_html(header, rows):
+    updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    thead = "".join(f"<th>{html.escape(str(h))}</th>" for h in header)
+    body_rows = []
+    for r in rows:
+        cells = []
+        for i, _ in enumerate(header):
+            val = str(r[i]).strip() if i < len(r) else ""
+            cells.append(f"<td>{html.escape(val)}</td>")
+        body_rows.append("<tr>" + "".join(cells) + "</tr>")
+    tbody = "\n".join(body_rows)
+    return f"""<!DOCTYPE html>
+<html lang="en">
 <head>
-    <title>Mohan Competitive Intelligence</title>
-    <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }}
-        .container {{ max-width: 1200px; margin: 0 auto; background: white; border-radius: 12px; padding: 30px; }}
-        h1 {{ color: #333; }}
-        table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-        th {{ background: #667eea; color: white; padding: 12px; text-align: left; }}
-        td {{ padding: 12px; border-bottom: 1px solid #eee; }}
-        tr:hover {{ background: #f9f9f9; }}
-        a {{ color: #667eea; }}
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Competitive Landscape</title>
+<style>
+  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+         margin: 0; padding: 24px; background: #0f172a; color: #e2e8f0; }}
+  h1 {{ margin: 0 0 4px; font-size: 20px; }}
+  .meta {{ color: #94a3b8; font-size: 13px; margin-bottom: 16px; }}
+  input {{ width: 100%; max-width: 420px; padding: 10px 12px; border-radius: 8px;
+          border: 1px solid #334155; background: #1e293b; color: #e2e8f0; margin-bottom: 16px; }}
+  table {{ width: 100%; border-collapse: collapse; font-size: 13px; background: #1e293b;
+          border-radius: 10px; overflow: hidden; }}
+  th {{ background: #334155; text-align: left; padding: 10px; position: sticky; top: 0; }}
+  td {{ padding: 10px; border-top: 1px solid #334155; vertical-align: top; }}
+  tr:hover td {{ background: #243449; }}
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>🏢 Mohan Competitive Intelligence</h1>
-        <p>Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-        
-        <table>
-            <tr>
-                <th>Company</th>
-                <th>Website</th>
-                <th>Founders</th>
-                <th>Team</th>
-                <th>Status</th>
-            </tr>
-"""
-    
-    for company in companies:
-        html_content += f"""            <tr>
-                <td><b><a href="{company[1]}" target="_blank">{company[0]}</a></b></td>
-                <td><a href="{company[1]}" target="_blank">Link</a></td>
-                <td>{company[2]}</td>
-                <td>{company[3]}</td>
-                <td><span style="color: green; font-weight: bold;">{company[4]}</span></td>
-            </tr>
-"""
-    
-    html_content += """        </table>
-    </div>
+  <h1>Competitive Landscape</h1>
+  <div class="meta">{len(rows)} companies · updated {updated}</div>
+  <input id="q" type="search" placeholder="Filter companies…" oninput="filt()">
+  <table>
+    <thead><tr>{thead}</tr></thead>
+    <tbody id="tb">
+{tbody}
+    </tbody>
+  </table>
+<script>
+function filt() {{
+  const q = document.getElementById('q').value.toLowerCase();
+  for (const tr of document.querySelectorAll('#tb tr')) {{
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  }}
+}}
+</script>
 </body>
 </html>
 """
-    
-    html_file = dashboard_dir / "index.html"
-    with open(html_file, 'w') as f:
-        f.write(html_content)
-    
-    print(f"✅ Generated {html_file}")
-    
-    print(f"\n✅ Skill 3 done")
+
+
+def main() -> int:
+    rows = sheet_api.read_rows()
+    if not rows:
+        print("Sheet is empty or unreachable.")
+        return 1
+
+    header = [str(c).strip() for c in rows[0]]
+    data = [r for r in rows[1:] if non_empty(r)]
+
+    data_dir = ROOT / "data"
+    dash_dir = ROOT / "dashboard"
+    data_dir.mkdir(exist_ok=True)
+    dash_dir.mkdir(exist_ok=True)
+
+    csv_path = data_dir / "competitors.csv"
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        for r in data:
+            writer.writerow([str(r[i]).strip() if i < len(r) else "" for i in range(len(header))])
+
+    html_path = dash_dir / "index.html"
+    with open(html_path, "w", encoding="utf-8") as f:
+        f.write(build_html(header, data))
+
+    print(f"Rendered {len(data)} companies -> {csv_path.relative_to(ROOT)}, {html_path.relative_to(ROOT)}")
     return 0
+
 
 if __name__ == "__main__":
     try:
-        exit(main())
+        sys.exit(main())
     except Exception as e:
-        print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)

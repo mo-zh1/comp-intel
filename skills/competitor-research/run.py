@@ -1,80 +1,123 @@
 #!/usr/bin/env python3
-"""Skill 2: Competitor Research"""
+"""
+Skill 2 tool — upsert deep-research field updates into the Google Sheet.
 
-import sys
+The agent (Claude) researches each company (web search) and extracts field
+values. This script is a thin, deterministic writer that applies those updates
+cleanly. It invents nothing.
+
+Usage:
+    echo '[{"company": "Earth AI",
+            "fields": {"Founders": "Roman Teslyuk",
+                       "Latest Round": "Series B $24M",
+                       "Valuation": ""}}]' \
+        | python run.py
+
+Input: a JSON list of {"company": <name>, "fields": {<header>: <value>}}.
+
+Behaviour (clean update):
+  - matches an existing row by "Company Name" (case-insensitive)
+  - creates a new row if the company is not present yet
+  - only writes fields whose column exists in the header
+  - never overwrites a non-empty existing value with an empty one
+  - skips writes where the value is unchanged
+"""
+
+import json
 import os
-from datetime import datetime
+import sys
 
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-sys.path.insert(0, parent_dir)
-
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from google_sheet_api import sheet_api
 
-def main():
-    print("🔬 Skill 2: Competitor Research")
-    print(f"   Time: {datetime.now().isoformat()}")
-    
-    if not sheet_api.test_connection():
-        print("❌ Cannot connect")
+
+def main() -> int:
+    raw = sys.stdin.read().strip()
+    if not raw:
+        print("No input. Pipe a JSON list of company updates via stdin.")
         return 1
-    
-    print("✅ Connected to Google Sheet")
-    
-    # Research updates (cross-validated, 2+ sources)
-    updates = [
-        {
-            "company": "Terra AI",
-            "field": "team_size",
-            "new_value": "42",
-            "sources": ["terraai.com", "linkedin.com"],
-            "confidence": "0.98",
-            "status": "AUTO_MERGED"
-        },
-        {
-            "company": "GeologicAI",
-            "field": "team_size",
-            "new_value": "89",
-            "sources": ["linkedin.com", "geologicai.com"],
-            "confidence": "0.96",
-            "status": "AUTO_MERGED"
-        },
-        {
-            "company": "Fleet Space",
-            "field": "team_size",
-            "new_value": "135",
-            "sources": ["linkedin.com", "fleetspace.com"],
-            "confidence": "0.97",
-            "status": "AUTO_MERGED"
-        }
-    ]
-    
-    print(f"\n✅ Found {len(updates)} field updates")
-    print(f"   All: {len(updates)} (2+ sources = AUTO_MERGED)")
-    
-    # Update update_log sheet
-    print("\n📝 Updating update_log sheet...")
-    timestamp = datetime.now().isoformat()
-    
-    for i, update in enumerate(updates):
-        row = 2 + i
-        sheet_api.update_cell(row, 1, timestamp)
-        sheet_api.update_cell(row, 2, update['company'])
-        sheet_api.update_cell(row, 3, update['field'])
-        sheet_api.update_cell(row, 4, "N/A")  # old value
-        sheet_api.update_cell(row, 5, update['new_value'])
-        sheet_api.update_cell(row, 6, "; ".join(update['sources']))
-        sheet_api.update_cell(row, 7, update['confidence'])
-        sheet_api.update_cell(row, 8, update['status'])
-        print(f"   ✅ {update['company']}: {update['field']} = {update['new_value']}")
-    
-    print(f"\n✅ Skill 2 done")
-    return 0
+
+    try:
+        updates = json.loads(raw)
+    except json.JSONDecodeError as e:
+        print(f"Invalid JSON: {e}")
+        return 1
+
+    if isinstance(updates, dict):
+        updates = updates.get("updates", [updates])
+    if not isinstance(updates, list):
+        print("Input must be a JSON list of updates.")
+        return 1
+
+    header = sheet_api.header()
+    if not header or "Company Name" not in header:
+        print("Sheet header missing 'Company Name'. Set up the header row first.")
+        return 1
+    name_idx = header.index("Company Name")
+    col_of = {h.strip().lower(): i for i, h in enumerate(header)}
+
+    rows = sheet_api.read_rows()
+    # name(lower) -> (sheet_row_1indexed, row_values)
+    index = {}
+    for i, r in enumerate(rows[1:], start=2):
+        if len(r) > name_idx and str(r[name_idx]).strip():
+            index[str(r[name_idx]).strip().lower()] = (i, r)
+
+    summary = {"updated": [], "created": [], "skipped_fields": [], "failed": []}
+
+    for upd in updates:
+        if not isinstance(upd, dict):
+            continue
+        name = str(upd.get("company", "")).strip()
+        fields = upd.get("fields", {}) or {}
+        if not name:
+            continue
+
+        # Keep only fields that map to a real column.
+        clean = {}
+        for k, v in fields.items():
+            ci = col_of.get(str(k).strip().lower())
+            if ci is None:
+                summary["skipped_fields"].append(f"{name}:{k} (no such column)")
+                continue
+            clean[ci] = "" if v is None else str(v).strip()
+
+        key = name.lower()
+        if key not in index:
+            # New row: build aligned to header (Company Name + provided fields).
+            row = ["" for _ in header]
+            row[name_idx] = name
+            for ci, val in clean.items():
+                row[ci] = val
+            if sheet_api.append(row):
+                summary["created"].append(name)
+            else:
+                summary["failed"].append(name)
+            continue
+
+        sheet_row, current = index[key]
+        changed = []
+        for ci, val in clean.items():
+            old = str(current[ci]).strip() if len(current) > ci else ""
+            if val == "":
+                continue  # never blank out an existing value
+            if val == old:
+                continue  # unchanged
+            if sheet_api.update_cell(sheet_row, ci + 1, val):
+                changed.append(header[ci])
+            else:
+                summary["failed"].append(f"{name}:{header[ci]}")
+        if changed:
+            summary["updated"].append({"company": name, "fields": changed})
+
+    print(json.dumps(summary, ensure_ascii=False))
+    return 0 if not summary["failed"] else 1
+
 
 if __name__ == "__main__":
     try:
-        exit(main())
+        sys.exit(main())
     except Exception as e:
-        print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)

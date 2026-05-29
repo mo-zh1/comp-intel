@@ -1,68 +1,107 @@
 #!/usr/bin/env python3
-"""Skill 1: Competitor Discovery"""
+"""
+Skill 1 tool — append newly-discovered competitors to the Google Sheet.
 
-import sys
+The agent (Claude) performs the web search and decides which companies are new.
+This script is a thin, deterministic writer: it takes that result as JSON on
+stdin and appends genuinely-new rows. It invents nothing.
+
+Usage:
+    echo '[{"Company Name": "Earth AI", "Website": "https://earthai.ai"}]' \
+        | python run.py
+
+Input: a JSON list of objects (or {"companies": [...]}). Object keys should match
+the sheet header (e.g. "Company Name", "Website"). Aliases accepted:
+name -> Company Name, company -> Company Name, url -> Website.
+
+Behaviour:
+  - reads the current header and rows from the sheet
+  - skips companies already present (case-insensitive "Company Name" match)
+  - appends the rest as rows aligned to the current header; unknown fields blank
+"""
+
+import json
 import os
-from datetime import datetime
+import sys
 
-# Add parent path
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-sys.path.insert(0, parent_dir)
-
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from google_sheet_api import sheet_api
 
-def main():
-    print("🔍 Skill 1: Competitor Discovery")
-    print(f"   Time: {datetime.now().isoformat()}")
-    
-    # Test connection
-    if not sheet_api.test_connection():
-        print("❌ Cannot connect to Google Sheet")
+ALIASES = {
+    "name": "Company Name",
+    "company": "Company Name",
+    "company name": "Company Name",
+    "website": "Website",
+    "url": "Website",
+}
+
+
+def normalize(obj: dict) -> dict:
+    out = {}
+    for key, value in obj.items():
+        out[ALIASES.get(str(key).strip().lower(), str(key).strip())] = value
+    return out
+
+
+def main() -> int:
+    raw = sys.stdin.read().strip()
+    if not raw:
+        print("No input. Pipe a JSON list of companies via stdin.")
         return 1
-    
-    print("✅ Connected to Google Sheet")
-    
-    # Sample discoveries
-    discoveries = [
-        {
-            "name": "Veracio",
-            "website": "https://www.veracio.com",
-            "discovered_date": datetime.now().strftime("%Y-%m-%d"),
-            "source": "mining-weekly.com",
-            "description": "AI core scanning"
-        },
-        {
-            "name": "Earth AI",
-            "website": "https://earthai.ai",
-            "discovered_date": datetime.now().strftime("%Y-%m-%d"),
-            "source": "techcrunch.com",
-            "description": "Mineral discovery AI"
-        }
-    ]
-    
-    print(f"\n✅ Found {len(discoveries)} new competitors")
-    for c in discoveries:
-        print(f"   - {c['name']} via {c['source']}")
-    
-    # Update Google Sheet
-    print("\n📝 Updating Google Sheet...")
-    for i, company in enumerate(discoveries):
-        row = 2 + i
-        sheet_api.update_cell(row, 1, company['name'])
-        sheet_api.update_cell(row, 2, company['website'])
-        sheet_api.update_cell(row, 3, company['discovered_date'])
-        sheet_api.update_cell(row, 4, company['source'])
-        sheet_api.update_cell(row, 5, "pending")
-        print(f"   ✅ Added {company['name']}")
-    
-    print(f"\n✅ Skill 1 done")
-    return 0
+
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as e:
+        print(f"Invalid JSON: {e}")
+        return 1
+
+    items = payload.get("companies", []) if isinstance(payload, dict) else payload
+    if not isinstance(items, list):
+        print("Input must be a JSON list of company objects.")
+        return 1
+
+    header = sheet_api.header()
+    if not header or "Company Name" not in header:
+        print("Sheet header missing 'Company Name'. Set up the header row first.")
+        return 1
+    name_idx = header.index("Company Name")
+
+    rows = sheet_api.read_rows()
+    existing = {
+        str(r[name_idx]).strip().lower()
+        for r in rows[1:]
+        if len(r) > name_idx and str(r[name_idx]).strip()
+    }
+
+    appended, skipped, failed = [], [], []
+    for obj in items:
+        if not isinstance(obj, dict):
+            continue
+        obj = normalize(obj)
+        name = str(obj.get("Company Name", "")).strip()
+        if not name:
+            continue
+        if name.lower() in existing:
+            skipped.append(name)
+            continue
+        row = [str(obj.get(col, "")).strip() for col in header]
+        if sheet_api.append(row):
+            appended.append(name)
+            existing.add(name.lower())
+        else:
+            failed.append(name)
+
+    print(json.dumps(
+        {"appended": appended, "skipped_existing": skipped, "failed": failed},
+        ensure_ascii=False,
+    ))
+    return 0 if not failed else 1
+
 
 if __name__ == "__main__":
     try:
-        exit(main())
+        sys.exit(main())
     except Exception as e:
-        print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)

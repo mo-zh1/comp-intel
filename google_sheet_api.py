@@ -1,129 +1,99 @@
 """
-Google Sheet HTTP API wrapper
-Uses Apps Script to read/write without SDK
+Google Sheet HTTP API wrapper (Apps Script Web App backend).
+
+The deployed Apps Script supports these operations (rows/cols are 1-indexed):
+  GET                                                   -> all rows as a 2D list
+  POST {action:"update_cell", row, col, value}          -> set one cell
+  POST {action:"update_row_by_key", keyCol, keyValue,   -> set one cell in the
+        targetCol, newValue}                               row whose keyCol == keyValue
+  POST {action:"append", rowData:[...]}                 -> append a row
+
+Pure stdlib (urllib) so the skills run with no third-party dependencies.
 """
 
-import requests
 import json
-from typing import List, Dict, Optional
-from datetime import datetime
+import urllib.request
+from typing import List, Optional
+
+WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyZNpmB-tuj30_M1uABI9wygCgWgfeDLURtUc_-ITZwHowB0PmZob7ykJQe5QyAMyDleQ/exec"
+SHEET_ID = "1e9gbtCVgzp2RdWyThrdl_eEs62n63Nto3aSQtH5FXHM"
+
 
 class GoogleSheetAPI:
-    """
-    Simple HTTP API wrapper for Google Sheets
-    No SDK required, just standard HTTP requests
-    """
-    
-    # Sheet ID from mo.zh's setup
-    SHEET_ID = "1e9gbtCVgzp2RdWyThrdl_eEs62n63Nto3aSQtH5FXHM"
-    
-    # Web App URL (Apps Script endpoint)
-    WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyZNpmB-tuj30_M1uABI9wygCgWgfeDLURtUc_-ITZwHowB0PmZob7ykJQe5QyAMyDleQ/exec"
-    
-    def __init__(self):
-        self.timeout = 30
-    
-    def read_all_data(self) -> List[List]:
-        """Read entire sheet"""
+    def __init__(self, timeout: int = 60):
+        self.timeout = timeout
+
+    def _get(self):
+        with urllib.request.urlopen(WEB_APP_URL, timeout=self.timeout) as resp:
+            return json.loads(resp.read().decode())
+
+    def _post(self, payload: dict) -> dict:
+        req = urllib.request.Request(
+            WEB_APP_URL,
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            text = resp.read().decode()
         try:
-            response = requests.get(self.WEB_APP_URL, timeout=self.timeout)
-            response.raise_for_status()
-            return response.json()
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return {"status": "error", "message": text[:200]}
+
+    def read_rows(self) -> List[list]:
+        """Return the whole sheet as a list of rows (each a list of cell values)."""
+        try:
+            data = self._get()
+            return data if isinstance(data, list) else []
         except Exception as e:
-            print(f"❌ Failed to read sheet: {e}")
+            print(f"read_rows failed: {e}")
             return []
-    
-    def read_range(self, sheet_name: str, range_spec: str) -> List[List]:
-        """Read specific range (if supported by Apps Script)"""
-        # Apps Script may not support range queries
-        # Return all data and filter client-side
-        return self.read_all_data()
-    
-    def update_cell(self, row: int, col: int, value: str) -> bool:
-        """
-        Update a single cell
-        row: 1-indexed row number
-        col: 1-indexed column number
-        """
-        try:
-            payload = {
-                "action": "update_cell",
-                "row": row,
-                "col": col,
-                "value": value
-            }
-            response = requests.post(self.WEB_APP_URL, json=payload, timeout=self.timeout)
-            response.raise_for_status()
-            result = response.json()
-            return result.get("status") == "success"
-        except Exception as e:
-            print(f"❌ Failed to update cell: {e}")
-            return False
-    
-    def update_row_by_key(self, key_col: int, key_value: str, target_col: int, new_value: str) -> bool:
-        """
-        Update a row by matching a key value
-        """
-        try:
-            payload = {
-                "action": "update_row_by_key",
-                "keyCol": key_col,
-                "keyValue": key_value,
-                "targetCol": target_col,
-                "newValue": new_value
-            }
-            response = requests.post(self.WEB_APP_URL, json=payload, timeout=self.timeout)
-            response.raise_for_status()
-            result = response.json()
-            return result.get("status") == "success"
-        except Exception as e:
-            print(f"❌ Failed to update row: {e}")
-            return False
-    
-    def append_row(self, values: List[str]) -> bool:
-        """Append a new row (if supported)"""
-        try:
-            payload = {
-                "action": "append_row",
-                "values": values
-            }
-            response = requests.post(self.WEB_APP_URL, json=payload, timeout=self.timeout)
-            response.raise_for_status()
-            result = response.json()
-            return result.get("status") == "success"
-        except Exception as e:
-            print(f"❌ Failed to append row: {e}")
-            return False
-    
+
+    def header(self) -> List[str]:
+        """First row, trimmed to strings."""
+        rows = self.read_rows()
+        return [str(c).strip() for c in rows[0]] if rows else []
+
+    def column_index(self, name: str) -> Optional[int]:
+        """1-indexed column for a header name (case-insensitive), or None."""
+        target = name.strip().lower()
+        for i, h in enumerate(self.header()):
+            if h.strip().lower() == target:
+                return i + 1
+        return None
+
+    def update_cell(self, row: int, col: int, value) -> bool:
+        res = self._post({"action": "update_cell", "row": row, "col": col, "value": value})
+        return res.get("status") == "success"
+
+    def update_row_by_key(self, key_col: int, key_value: str, target_col: int, new_value) -> bool:
+        res = self._post({
+            "action": "update_row_by_key",
+            "keyCol": key_col,
+            "keyValue": key_value,
+            "targetCol": target_col,
+            "newValue": new_value,
+        })
+        return res.get("status") == "success"
+
+    def append(self, row_values: list) -> bool:
+        res = self._post({"action": "append", "rowData": row_values})
+        return res.get("status") == "success"
+
     def test_connection(self) -> bool:
-        """Test if API is working"""
         try:
-            response = requests.get(self.WEB_APP_URL, timeout=10)
-            response.raise_for_status()
+            self._get()
             return True
         except Exception as e:
-            print(f"❌ Connection test failed: {e}")
+            print(f"connection failed: {e}")
             return False
 
-# Create global instance
+
 sheet_api = GoogleSheetAPI()
 
+
 if __name__ == "__main__":
-    print("Testing Google Sheet API...")
-    
-    # Test connection
-    if sheet_api.test_connection():
-        print("✅ Connected to Google Sheet")
-    else:
-        print("❌ Cannot connect")
-        exit(1)
-    
-    # Read data
-    data = sheet_api.read_all_data()
-    print(f"✅ Read {len(data)} rows")
-    
-    # Test update
-    if sheet_api.update_cell(2, 14, f"Test {datetime.now().strftime('%Y-%m-%d %H:%M')}"):
-        print("✅ Cell update successful")
-    else:
-        print("❌ Cell update failed")
+    if not sheet_api.test_connection():
+        raise SystemExit("Cannot reach the sheet web app")
+    rows = sheet_api.read_rows()
+    print(f"Connected. {len(rows)} rows. Header: {sheet_api.header()}")
