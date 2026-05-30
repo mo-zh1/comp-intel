@@ -30,7 +30,7 @@ This prints each company with its current values and a `missing_fields` list. Pr
 
 2. **Research each company (WebSearch → WebFetch).** For each company, search broadly, then fetch the primary sources to confirm each field. Cross-check **2+ independent sources** for funding/valuation. Capture a value only when a real source supports it, and keep the URLs you actually used — they go in the `source：` field.
 
-3. **Write clean updates.** Pipe the results as JSON to the upsert script. Field values should be **rich and analytical** (see depth note below), and may mix English + 中文:
+3. **Write clean updates.** Pipe the results as JSON to the upsert script. Write everything in **English** (search and content are English-only — do not translate or mix in other languages). Field values should be **rich and analytical** (see depth note below):
 
 ```bash
 echo '[{"company": "Terra AI",
@@ -38,13 +38,13 @@ echo '[{"company": "Terra AI",
           "Founders": "John Mern (CEO, Stanford PhD - SISL), Anthony Corso (CTO, Stanford PhD)",
           "Founded Year": "2023",
           "Business Model": "Enterprise B2B AI platform (SaaS) — sold via direct sales + strategic partnerships to mining & energy majors",
-          "Technical": "Diffusion / generative models (确认,多源). 生成 millions of possible 3D subsurface models conditioned to match the signal + reasoning agent for campaign planning。数据 = 真实多模态: drill cores + geophysics + geochemistry (合成数据仅作为模型输出,非训练输入)",
-          "stage": "多阶段: Target Screening (greenfield/undercover) + Survey Design + Dynamic Drilling (resource definition)",
+          "Technical": "Diffusion / generative models (confirmed, multiple sources). Generates millions of possible 3D subsurface models conditioned to match the signal + a reasoning agent for campaign planning. Data = real multimodal: drill cores + geophysics + geochemistry (synthetic data is only model output, not training input)",
+          "stage": "Multi-stage: Target Screening (greenfield/undercover) + Survey Design + Dynamic Drilling (resource definition)",
           "Latest Round": "Seed · $3.39M · Oct 2023 (publicly announced 2025 when emerging from stealth)",
           "Funding Trajectory": "NSF grants → Seed $3.39M (2023, led by Khosla Ventures) → Rio Tinto strategic investment (2025) → Series A upcoming (announced intent, not closed)",
           "Investors": "Khosla Ventures (lead), Rio Tinto (strategic, 2025), Storyhouse Ventures, Plug and Play, Climate Capital, US NSF",
-          "Valuation": "未公开 (Seed $3.4M 2023, Khosla 领投;无估值披露)",
-          "source：": "https://www.choppingblock.ai/companies/terra-ai\nhttps://www.terraai.com/minerals"
+          "Valuation": "Undisclosed (Seed $3.4M 2023, led by Khosla; no valuation disclosed)",
+          "source：": "https://www.choppingblock.ai/companies/terra-ai\nhttps://www.terraai.com/minerals\nhttps://www.khoslaventures.com/portfolio"
         }}]' \
   | python scripts/upsert_research.py
 ```
@@ -63,16 +63,16 @@ Fill these with confirmed values. The tracker favours **depth over brevity** —
 - **Founded Year** — founding year + location + any pivot history, e.g. `2013 (originally Enersoft, oil & gas; pivoted to mining 2021)`.
 - **Business Model** — how they make money + GTM + positioning, a full descriptive sentence.
 - **Technical** — the core technology in depth: model architecture, data types, what's confirmed vs claimed. This is the richest field; note diffusion / CNN / GNN / foundation-model claims and real vs synthetic data.
-- **stage** — where in the mining lifecycle it applies, e.g. `多阶段: Target Screening (greenfield) + Survey Design + resource definition` or `Production-stage mines + brownfield (NOT greenfield)`.
+- **stage** — where in the mining lifecycle it applies, e.g. `Multi-stage: Target Screening (greenfield) + Survey Design + resource definition` or `Production-stage mines + brownfield (NOT greenfield)`.
 - **Latest Round** — most recent round, amount, date, lead, e.g. `Series B · $44M USD · Jul 2025 (led by Blue Earth Capital)`.
 - **Funding Trajectory** — the full funding history in one cell, with totals, e.g. `Seed → Series A $30M (2023) → Series B $44M (2025); ~$74M total`.
 - **Investors** — investors with leads marked + board seats / notable backers.
-- **Valuation** — only if publicly reported; otherwise note `未公开` with brief reason, e.g. `未公开 (Series B $44M, declined to disclose)` or `USD $525M (Series D Dec 2024)`.
-- **source：** — the source URLs you actually fetched, newline-separated. This is the provenance trail; never leave it empty for a researched company.
+- **Valuation** — only if publicly reported; otherwise note `Undisclosed` with brief reason, e.g. `Undisclosed (Series B $44M, declined to disclose)` or `USD $525M (Series D Dec 2024)`.
+- **source：** — **all** the source URLs you used, newline-separated: be broad and complete, list every relevant page you consulted (official site, Crunchbase/PitchBook/Tracxn, press releases, news, filings), not just one or two. This is the provenance trail a human uses to verify, so err on the side of including more. Never leave it empty for a researched company.
 
 ## Depth and style
 
-Unlike a one-line tracker, this landscape favours **dense, analytical cells** — full sentences, several clauses, and English + 中文 mixed where it sharpens meaning (the existing tracker is bilingual). Mark confidence and provenance inline, e.g. `(确认,多源)`, `⚠️ 不适用`, `(per PitchBook)`. The `Technical` and `Business Model` cells in particular should read like a short analyst note, not a tag.
+Write everything in **English only** — no translation, no mixed languages. Unlike a one-line tracker, this landscape favours **dense, analytical cells** — full sentences, several clauses. Mark confidence and provenance inline, e.g. `(confirmed, multiple sources)`, `⚠️ N/A`, `(per PitchBook)`. The `Technical` and `Business Model` cells in particular should read like a short analyst note, not a tag.
 
 ## Rules that matter
 
