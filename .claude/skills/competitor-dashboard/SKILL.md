@@ -10,7 +10,9 @@ description: Turn the competitor tracker Google Sheet into a CSV snapshot and an
 This is **step 3 of 3** (discovery → research → dashboard). It reads the current state of the tracker Google Sheet and produces two artifacts so the landscape is easy to consume and version:
 
 - `data/competitors.csv` — a flat snapshot (good for git history / spreadsheets).
-- `dashboard/index.html` — a self-contained, searchable table (open in any browser, works offline).
+- `dashboard/index.html` — a CEO-facing, self-contained dashboard (no external dependencies, opens in any browser, works offline / emailable).
+
+The HTML dashboard includes: KPI summary, a funding-stage distribution chart, a **core AI+mining vs adjacent** split (companies whose Business Model / Technical / stage carry a ⚠ marker are treated as adjacent), an **investor ↔ company relationship network** that highlights investors backing two or more competitors (the "vet before contact" signal), and a searchable / sortable full table with clickable source links.
 
 Columns come from the sheet header at runtime, so the dashboard automatically matches whatever fields the tracker currently has — there is nothing to keep in sync.
 
