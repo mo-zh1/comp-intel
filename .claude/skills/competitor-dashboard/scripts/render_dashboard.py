@@ -3,8 +3,14 @@
 Render the competitor tracker into a CSV snapshot + a CEO-facing HTML dashboard.
 
 Reads the live Google Sheet (header + rows) and writes, at the project root:
-  data/competitors.csv      CSV snapshot of the sheet
-  dashboard/index.html      self-contained dashboard (no external dependencies)
+  data/competitors.csv                          latest CSV snapshot of the sheet
+  data/archive/competitors_<EST-ts>.csv         timestamped CSV snapshot (kept)
+  dashboard/index.html                          latest self-contained dashboard
+  dashboard/archive/dashboard_<EST-ts>.html     timestamped dashboard (kept)
+
+Each run overwrites the two "latest" files and additionally drops an
+Eastern-time-stamped copy into the archive/ folders. Old archives are never
+deleted, giving a local version history without touching .gitignore.
 
 The dashboard shows: KPI summary, funding-stage distribution, a core AI+mining
 vs adjacent split, an investor <-> company relationship network (the key view:
@@ -465,6 +471,22 @@ function sortBy(i){const tb=document.querySelector('#tbl tbody');
 """
 
 
+def eastern_timestamp() -> str:
+    """Return an Eastern-time stamp like 2026-05-30_1313_EDT for archive filenames.
+
+    Uses the America/New_York zone so the wall-clock time is correct year-round
+    (the %Z suffix is EST in winter, EDT during daylight saving). Falls back to a
+    fixed UTC-5 'EST' offset if the tz database is unavailable.
+    """
+    try:
+        from zoneinfo import ZoneInfo
+        now = datetime.now(ZoneInfo("America/New_York"))
+    except Exception:
+        from datetime import timedelta, timezone
+        now = datetime.now(timezone(timedelta(hours=-5), "EST"))
+    return now.strftime("%Y-%m-%d_%H%M_%Z")
+
+
 def main() -> int:
     rows = sheet_api.read_rows()
     if not rows:
@@ -476,26 +498,37 @@ def main() -> int:
 
     data_dir = ROOT / "data"
     dash_dir = ROOT / "dashboard"
-    data_dir.mkdir(exist_ok=True)
-    dash_dir.mkdir(exist_ok=True)
+    data_archive = data_dir / "archive"
+    dash_archive = dash_dir / "archive"
+    for p in (data_dir, dash_dir, data_archive, dash_archive):
+        p.mkdir(exist_ok=True)
 
+    ts = eastern_timestamp()
+
+    csv_text_rows = [header] + [[cell(r, i) for i in range(len(header))] for r in data_rows]
     csv_path = data_dir / "competitors.csv"
-    with open(csv_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(header)
-        for r in data_rows:
-            w.writerow([cell(r, i) for i in range(len(header))])
+    csv_archive_path = data_archive / f"competitors_{ts}.csv"
+    for path in (csv_path, csv_archive_path):
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            for row in csv_text_rows:
+                w.writerow(row)
 
     d = build_dashboard(header, data_rows)
+    html_text = render_html(header, data_rows, d)
     html_path = dash_dir / "index.html"
-    with open(html_path, "w", encoding="utf-8") as f:
-        f.write(render_html(header, data_rows, d))
+    html_archive_path = dash_archive / f"dashboard_{ts}.html"
+    for path in (html_path, html_archive_path):
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(html_text)
 
     print(f"Rendered {len(data_rows)} companies "
           f"({len(d['core'])} core / {len(d['adjacent'])} adjacent), "
           f"{len(d['graph']['nodes'])} graph nodes, {len(d['shared'])} shared investors")
     print(f"  -> {csv_path.relative_to(ROOT)}")
+    print(f"  -> {csv_archive_path.relative_to(ROOT)}")
     print(f"  -> {html_path.relative_to(ROOT)}")
+    print(f"  -> {html_archive_path.relative_to(ROOT)}")
     return 0
 
 

@@ -7,10 +7,11 @@ description: Turn the competitor tracker Google Sheet into a CSV snapshot and an
 
 ## What this does and why
 
-This is **step 3 of 3** (discovery → research → dashboard). It reads the current state of the tracker Google Sheet and produces two artifacts so the landscape is easy to consume and version:
+This is **step 3 of 3** (discovery → research → dashboard). It reads the current state of the tracker Google Sheet and produces two "latest" artifacts plus timestamped archive copies so the landscape is easy to consume and version:
 
-- `data/competitors.csv` — a flat snapshot (good for git history / spreadsheets).
-- `dashboard/index.html` — a CEO-facing, self-contained dashboard (no external dependencies, opens in any browser, works offline / emailable).
+- `data/competitors.csv` — latest flat snapshot (good for git history / spreadsheets).
+- `dashboard/index.html` — latest CEO-facing, self-contained dashboard (no external dependencies, opens in any browser, works offline / emailable).
+- `data/archive/competitors_<EST-ts>.csv` and `dashboard/archive/dashboard_<EST-ts>.html` — a timestamped copy of each, written every run. Timestamps use Eastern time (e.g. `2026-05-30_1315_EDT`). Old archives are never deleted, giving a local version history; `.gitignore` is untouched.
 
 The HTML dashboard includes: KPI summary, a funding-stage distribution chart, a **core AI+mining vs adjacent** split (companies whose Business Model / Technical / stage carry a ⚠ marker are treated as adjacent), an **investor ↔ company relationship network** that highlights investors backing two or more competitors (the "vet before contact" signal), and a searchable / sortable full table with clickable source links.
 
@@ -31,5 +32,5 @@ That's it — this step is fully deterministic, so there's no web search or judg
 ## Notes
 
 - The renderer reads through the shared `google_sheet_api.py` client; you don't access the sheet directly.
-- Output files are written at the project root (`data/`, `dashboard/`), created if missing.
-- Safe to run repeatedly — it overwrites the previous snapshot with the latest sheet contents.
+- Output files are written at the project root (`data/`, `dashboard/`, and their `archive/` subfolders), created if missing.
+- Safe to run repeatedly — it overwrites the two "latest" files and adds a new Eastern-time-stamped archive copy each run, keeping all previous archives.
