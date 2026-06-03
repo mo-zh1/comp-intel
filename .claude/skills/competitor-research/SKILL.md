@@ -23,10 +23,11 @@ The tracker is one Google Sheet. You read it and write to it only through the bu
 1. **See what needs work.** Run:
 
 ```bash
-python scripts/list_companies.py --missing-only
+python scripts/list_companies.py --missing-only   # companies with empty fields
+python scripts/list_companies.py --stale-only     # companies not researched in 90+ days
 ```
 
-This prints each company with its current values and a `missing_fields` list. Prioritise empty fields, but you may also re-verify stale ones.
+Each company record includes `missing_fields` (empty columns) and a `stale` flag (true if `last_researched` is absent or older than 90 days). Prioritise empty fields first; then treat stale companies as candidates for re-verifying key fields like `Investors`, `Funding Trajectory`, and `Valuation`. The `last_researched` date is written automatically by `upsert_research.py` whenever any field is updated.
 
 2. **Research each company (WebSearch → WebFetch).** For each company, search broadly, then fetch the primary sources to confirm each field. Cross-check **2+ independent sources** for funding/valuation. Capture a value only when a real source supports it, and keep the URLs you actually used — they go in the `source：` field.
 

@@ -9,18 +9,37 @@ Use this to decide which companies / fields still need deep research.
 Usage:
     python scripts/list_companies.py
     python scripts/list_companies.py --missing-only   # only rows with empty fields
+    python scripts/list_companies.py --stale-only     # only rows not researched in 90+ days
 """
 
 import json
 import os
 import sys
+from datetime import date
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from google_sheet_api import sheet_api
 
+STALE_DAYS = 90
+
+
+def _is_stale(last_researched_val: str) -> bool:
+    """True if never researched or researched more than STALE_DAYS ago."""
+    if not last_researched_val:
+        return True
+    try:
+        # Sheet may return a full ISO datetime (e.g. "2026-05-31T04:00:00.000Z");
+        # take only the date portion before any "T".
+        date_part = last_researched_val.split("T")[0]
+        last = date.fromisoformat(date_part)
+        return (date.today() - last).days > STALE_DAYS
+    except ValueError:
+        return True
+
 
 def main() -> int:
     missing_only = "--missing-only" in sys.argv
+    stale_only = "--stale-only" in sys.argv
 
     rows = sheet_api.read_rows()
     if not rows:
@@ -40,10 +59,13 @@ def main() -> int:
         for i, col in enumerate(header):
             val = str(r[i]).strip() if i < len(r) else ""
             record[col] = val
-            if not val and col != "Company Name":
+            if not val and col not in ("Company Name", "last_researched"):
                 missing.append(col)
         record["missing_fields"] = missing
+        record["stale"] = _is_stale(record.get("last_researched", ""))
         if missing_only and not missing:
+            continue
+        if stale_only and not record["stale"]:
             continue
         out.append(record)
 

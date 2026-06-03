@@ -26,6 +26,7 @@ Clean-update behaviour:
 import json
 import os
 import sys
+from datetime import date
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from google_sheet_api import sheet_api
@@ -57,6 +58,9 @@ def main() -> int:
     col_of = {h.strip().lower(): i for i, h in enumerate(header)}
 
     rows = sheet_api.read_rows()
+    if not rows:
+        print(json.dumps({"error": "read_rows returned empty — aborting to prevent duplicate rows"}))
+        return 1
     index = {}
     for i, r in enumerate(rows[1:], start=2):  # sheet rows are 1-indexed; data starts at row 2
         if len(r) > name_idx and str(r[name_idx]).strip():
@@ -86,6 +90,9 @@ def main() -> int:
             row[name_idx] = name
             for ci, val in clean.items():
                 row[ci] = val
+            ts_ci = col_of.get("last_researched")
+            if ts_ci is not None:
+                row[ts_ci] = date.today().isoformat()
             if sheet_api.append(row):
                 summary["created"].append(name)
             else:
@@ -103,6 +110,10 @@ def main() -> int:
             else:
                 summary["failed"].append(f"{name}:{header[ci]}")
         if changed:
+            # stamp last_researched whenever any field is updated
+            ts_ci = col_of.get("last_researched")
+            if ts_ci is not None:
+                sheet_api.update_cell(sheet_row, ts_ci + 1, date.today().isoformat())
             summary["updated"].append({"company": name, "fields": changed})
 
     print(json.dumps(summary, ensure_ascii=False))
