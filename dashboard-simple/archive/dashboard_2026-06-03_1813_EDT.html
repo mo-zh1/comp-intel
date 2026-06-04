@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Competitor Intel</title>
+<script src="../d3.min.js"></script>
+<style>
+:root {
+  --bg:#0f0f0f; --surface:#1a1a1a; --border:#2a2a2a;
+  --gold:#C9A442; --gold-dim:#7a6028;
+  --text:#e5e5e5; --muted:#6b6b6b;
+  --green:#4ade80; --green-bg:#0d2b1a;
+  --purple:#a78bfa; --purple-bg:#1e1030;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* header */
+header{display:flex;justify-content:space-between;align-items:center;
+  padding:16px 40px;border-bottom:1px solid var(--border)}
+.brand{color:var(--gold);font-size:17px;font-weight:600;letter-spacing:.4px}
+.ts{color:var(--muted);font-size:12px}
+
+/* main */
+main{max-width:1200px;margin:0 auto;padding:48px 40px}
+h1{font-size:44px;font-weight:700;line-height:1.1;margin-bottom:10px}
+.subtitle{color:var(--muted);font-size:14px;margin-bottom:44px}
+h2{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:16px}
+
+/* kpi */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);background:var(--border);
+  gap:1px;border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:36px}
+.kpi{background:var(--surface);padding:24px 28px}
+.kpi-n{font-size:38px;font-weight:700;color:var(--gold);line-height:1}
+.kpi-l{font-size:11px;letter-spacing:1.5px;color:var(--muted);margin-top:10px}
+
+/* filter pills */
+.filters{display:flex;align-items:center;gap:8px;margin-bottom:20px}
+.f-label{font-size:11px;letter-spacing:1px;color:var(--muted);margin-right:4px}
+.pill{background:transparent;border:1px solid var(--border);color:var(--muted);
+  padding:5px 16px;border-radius:20px;font-size:13px;cursor:pointer;transition:.15s}
+.pill:hover{border-color:var(--gold-dim);color:var(--text)}
+.pill.active{border-color:var(--gold);color:var(--gold)}
+
+/* table */
+.tbl-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:52px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--surface);padding:13px 16px;text-align:left;
+  font-size:10px;letter-spacing:1.2px;color:var(--muted);font-weight:600;white-space:nowrap}
+tbody tr{border-top:1px solid var(--border);transition:.1s}
+tbody tr:hover{background:#1f1f1f}
+tbody tr.adj{opacity:.45}
+td{padding:14px 16px;vertical-align:middle}
+.co-cell .co-name{font-weight:600;display:flex;align-items:center;gap:6px}
+.site{color:var(--muted);font-size:11px;text-decoration:none;display:block;margin-top:3px}
+.site:hover{color:var(--gold)}
+.dim-txt{color:var(--muted)}
+.adj-tag{font-size:9px;color:#666;border:1px solid #333;border-radius:3px;padding:1px 5px;flex-shrink:0}
+.round-lbl{color:var(--gold);font-size:12px}
+.badge{display:inline-block;padding:3px 9px;border-radius:4px;font-size:11px;font-weight:500}
+.badge.active  {background:var(--green-bg);color:var(--green)}
+.badge.acquired{background:var(--purple-bg);color:var(--purple)}
+.badge.stealth {background:#222;color:#888}
+
+/* graph */
+.graph-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.sliders{display:flex;gap:28px;align-items:center}
+.sl-group{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.sl-group input[type=range]{width:110px;accent-color:var(--gold);cursor:pointer}
+.sl-val{min-width:36px;color:var(--text);font-size:12px}
+#net-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  overflow:hidden;margin-bottom:52px}
+#net{width:100%;display:block;cursor:grab}
+#net:active{cursor:grabbing}
+.legend{padding:12px 20px;border-top:1px solid var(--border);
+  display:flex;gap:20px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:5px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.n-link{stroke:#333;stroke-opacity:.5;stroke-width:1}
+.n-link.lead{stroke:var(--gold);stroke-opacity:.8;stroke-width:1.5}
+.n-lbl{font-size:10px;fill:var(--muted);pointer-events:none}
+.n-lbl.company{fill:var(--text);font-size:11px;font-weight:600}
+.n-lbl.shared{fill:#f43f5e}
+.dimmed{opacity:.07}
+
+/* analysis */
+.analysis{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px}
+.bar-row{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:12px}
+.bar-lab{width:90px;color:var(--muted);text-align:right;white-space:nowrap;flex-shrink:0}
+.bar{flex:1;background:#111;border-radius:4px;height:11px;overflow:hidden}
+.fill{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-dim));border-radius:4px}
+.bar-n{width:22px;color:var(--text);font-weight:600}
+ul.shared{list-style:none;max-height:420px;overflow:auto}
+ul.shared li{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px;
+  padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+ul.shared li:last-child{border-bottom:none}
+.s-name{font-weight:600}
+.cnt{color:var(--gold);font-weight:700;font-size:12px}
+.cos{color:var(--muted);font-size:11.5px;width:100%;margin-top:2px}
+
+@media(max-width:900px){
+  header,main{padding-left:20px;padding-right:20px}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .analysis{grid-template-columns:1fr}
+  h1{font-size:32px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Competitor Intel</div>
+  <div class="ts">Updated 2026-06-03 22:13 UTC</div>
+</header>
+
+<main>
+  <h1>Tracked Companies</h1>
+  <p class="subtitle">Mining &amp; subsurface AI startups under watch &mdash; 18 core AI+mining companies.</p>
+
+  <div class="kpi-grid"><div class="kpi"><div class="kpi-n">23</div><div class="kpi-l">TRACKED</div></div><div class="kpi"><div class="kpi-n">22</div><div class="kpi-l">ACTIVE</div></div><div class="kpi"><div class="kpi-n">0</div><div class="kpi-l">STEALTH</div></div><div class="kpi"><div class="kpi-n">1</div><div class="kpi-l">ACQUIRED</div></div></div>
+
+  <div class="filters">
+    <span class="f-label">STATUS</span>
+    <button class="pill active" data-f="all"      onclick="filter('all')">All</button>
+    <button class="pill"        data-f="active"   onclick="filter('active')">Active</button>
+    <button class="pill"        data-f="stealth"  onclick="filter('stealth')">Stealth</button>
+    <button class="pill"        data-f="acquired" onclick="filter('acquired')">Acquired</button>
+  </div>
+
+  <div class="tbl-wrap">
+    <table id="tbl">
+      <thead><tr>
+        <th>COMPANY</th><th>STATUS</th><th>HQ</th><th>FOUNDED</th>
+        <th>ROUND</th><th>AMOUNT</th><th>DATE</th>
+      </tr></thead>
+      <tbody><tr data-status="active"><td class="co-cell"><div class="co-name">Terra AI</div><a class="site" href="https://www.terraai.com/" target="_blank">terraai.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">—</td><td class="dim-txt">2023</td><td><span class="round-lbl">Seed</span></td><td class="dim-txt">$3.39M</td><td class="dim-txt">2023-Oct</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">GeologicAI</div><a class="site" href="https://www.geologicai.com/" target="_blank">geologicai.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">—</td><td class="dim-txt">2013</td><td><span class="round-lbl">Series B</span></td><td class="dim-txt">$44M</td><td class="dim-txt">2025</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">Fleet Space Technologies</div><a class="site" href="https://www.fleetspace.com/" target="_blank">fleetspace.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Adelaide, South Australia</td><td class="dim-txt">2015</td><td><span class="round-lbl">Series D</span></td><td class="dim-txt">$100M</td><td class="dim-txt">2024</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">VerAI</div><a class="site" href="https://ver-ai.com/" target="_blank">ver-ai.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">—</td><td class="dim-txt">2020</td><td><span class="round-lbl">Series B</span></td><td class="dim-txt">$24M</td><td class="dim-txt">2025</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">Earth AI</div><a class="site" href="https://www.earth-ai.com/" target="_blank">earth-ai.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Sydney, Australia + Los Angeles</td><td class="dim-txt">2017</td><td><span class="round-lbl">Series B</span></td><td class="dim-txt">$20M</td><td class="dim-txt">2025</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">TerraDX</div><a class="site" href="https://www.terradx.ai/" target="_blank">terradx.ai</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Vancouver, BC, Canada</td><td class="dim-txt">2023</td><td><span class="round-lbl">Pre-Seed</span></td><td class="dim-txt">$1.45M</td><td class="dim-txt">2023</td></tr>
+<tr data-status="acquired"><td class="co-cell"><div class="co-name">Datarock (IMDEX)</div><a class="site" href="https://www.imdex.com/software/datarock" target="_blank">imdex.com/software/datarock</a></td><td><span class="badge acquired">acquired</span></td><td class="dim-txt">Melbourne, Australia</td><td class="dim-txt">2018</td><td><span class="round-lbl">—</span></td><td class="dim-txt">$31M</td><td class="dim-txt">2026</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">4POINT (GEOPHYSICAL AI)</div><a class="site" href="https://4point.ai/" target="_blank">4point.ai</a></td><td><span class="badge active">active</span></td><td class="dim-txt">San Francisco / Culver City, California, US</td><td class="dim-txt">2024</td><td><span class="round-lbl">Pre-Seed</span></td><td class="dim-txt">—</td><td class="dim-txt">2024</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">MINERAL FORECAST</div><a class="site" href="https://www.mineralforecast.com/" target="_blank">mineralforecast.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Santiago, Chile</td><td class="dim-txt">2014</td><td><span class="round-lbl">—</span></td><td class="dim-txt">$3.2M</td><td class="dim-txt">2023-Sep</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">MATERIAL DIFFERENCE</div><a class="site" href="https://materialdifference.earth/" target="_blank">materialdifference.earth</a></td><td><span class="badge active">active</span></td><td class="dim-txt">incorporated 21 July 2025, London/Cambridge, UK</td><td class="dim-txt">2025</td><td><span class="round-lbl">Pre-Seed</span></td><td class="dim-txt">—</td><td class="dim-txt">—</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">STRATUM AI</div><a class="site" href="https://stratum.gs/" target="_blank">stratum.gs</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Toronto, Canada</td><td class="dim-txt">2019</td><td><span class="round-lbl">Seed</span></td><td class="dim-txt">$150K</td><td class="dim-txt">2020-Aug</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">geopyörä (breakage test)</div><a class="site" href="https://www.geopyora.com/" target="_blank">geopyora.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Oulu, Finland</td><td class="dim-txt">2020</td><td><span class="round-lbl">Seed</span></td><td class="dim-txt">—</td><td class="dim-txt">—</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">EARTHGRID<span class="adj-tag">adj</span></div><a class="site" href="https://earthgrid.io/" target="_blank">earthgrid.io</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Point Richmond / Bay Area, California, US</td><td class="dim-txt">2016</td><td><span class="round-lbl">Seed</span></td><td class="dim-txt">$30M</td><td class="dim-txt">2023</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">QUAISE<span class="adj-tag">adj</span></div><a class="site" href="https://www.quaise.com/" target="_blank">quaise.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Cambridge, MA, US</td><td class="dim-txt">2018</td><td><span class="round-lbl">Series A</span></td><td class="dim-txt">$52M</td><td class="dim-txt">2022-Jun</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">HYPER SCIENCES<span class="adj-tag">adj</span></div><a class="site" href="https://www.hypersciences.com/" target="_blank">hypersciences.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Spokane, WA, US</td><td class="dim-txt">2014</td><td><span class="round-lbl">Grant</span></td><td class="dim-txt">$151B</td><td class="dim-txt">2026</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">ROCKBURST TECHNOLOGIES<span class="adj-tag">adj</span></div><a class="site" href="https://www.rockburst.tech/" target="_blank">rockburst.tech</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Vancouver, BC, Canada</td><td class="dim-txt">2020</td><td><span class="round-lbl">Grant</span></td><td class="dim-txt">$6M</td><td class="dim-txt">—</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">HEPHAE<span class="adj-tag">adj</span></div><a class="site" href="https://www.hephaeet.com/" target="_blank">hephaeet.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Houston, TX, US — Hephae Energy Technology</td><td class="dim-txt">2020</td><td><span class="round-lbl">Series A</span></td><td class="dim-txt">$6.35M</td><td class="dim-txt">2024</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">Lithosquare</div><a class="site" href="https://lithosquare.com" target="_blank">lithosquare.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Paris, France</td><td class="dim-txt">2024</td><td><span class="round-lbl">Seed</span></td><td class="dim-txt">$25M</td><td class="dim-txt">2026-May</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">KoBold Metals</div><a class="site" href="https://koboldmetals.com" target="_blank">koboldmetals.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Berkeley / San Francisco, CA, USA</td><td class="dim-txt">2018</td><td><span class="round-lbl">Series C</span></td><td class="dim-txt">$163</td><td class="dim-txt">2025-Nov</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">Veracio</div><a class="site" href="https://www.veracio.com" target="_blank">veracio.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">launched Feb 2023 as Veracio</td><td class="dim-txt">2023</td><td><span class="round-lbl">—</span></td><td class="dim-txt">$29.3M</td><td class="dim-txt">2023-Sep</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">OreFox AI</div><a class="site" href="https://orefox.com" target="_blank">orefox.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Brisbane, Queensland, Australia</td><td class="dim-txt">2017</td><td><span class="round-lbl">—</span></td><td class="dim-txt">—</td><td class="dim-txt">—</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">VRIFY</div><a class="site" href="https://vrify.com" target="_blank">vrify.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">exact founding year not publicly confirmed</td><td class="dim-txt">—</td><td><span class="round-lbl">Series B</span></td><td class="dim-txt">$12.5M</td><td class="dim-txt">2025-Feb</td></tr>
+<tr data-status="active"><td class="co-cell"><div class="co-name">Minerva Intelligence</div><a class="site" href="https://minervaintelligence.com" target="_blank">minervaintelligence.com</a></td><td><span class="badge active">active</span></td><td class="dim-txt">Vancouver, BC, Canada</td><td class="dim-txt">—</td><td><span class="round-lbl">—</span></td><td class="dim-txt">$0.075</td><td class="dim-txt">—</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="graph-header">
+    <h2>Investor &rarr; Company Network</h2>
+    <div class="sliders">
+      <div class="sl-group">
+        <span>Charge</span>
+        <input type="range" id="sl-charge" min="-1500" max="-50" value="-250">
+        <span class="sl-val" id="v-charge">-250</span>
+      </div>
+      <div class="sl-group">
+        <span>Distance</span>
+        <input type="range" id="sl-dist" min="30" max="300" value="80">
+        <span class="sl-val" id="v-dist">80</span>
+      </div>
+    </div>
+  </div>
+  <div id="net-wrap">
+    <svg id="net" height="520"></svg>
+    <div class="legend">
+      <span><i class="dot" style="background:#C9A442"></i>Company</span>
+      <span><i class="dot" style="background:#6b6b6b"></i>Investor</span>
+      <span><i class="dot" style="background:#f43f5e"></i>Shared investor (2+)</span>
+      <span><i class="dot" style="background:#C9A442;opacity:.6"></i>Lead / strategic link</span>
+    </div>
+  </div>
+
+  <div class="analysis">
+    <div class="card">
+      <h2>Funding Stage &mdash; Core Companies</h2>
+      <div class="bar-row"><span class="bar-lab">Pre-Seed</span><span class="bar"><span class="fill" style="width:75%"></span></span><span class="bar-n">3</span></div><div class="bar-row"><span class="bar-lab">Seed</span><span class="bar"><span class="fill" style="width:100%"></span></span><span class="bar-n">4</span></div><div class="bar-row"><span class="bar-lab">Series B</span><span class="bar"><span class="fill" style="width:100%"></span></span><span class="bar-n">4</span></div><div class="bar-row"><span class="bar-lab">Series C</span><span class="bar"><span class="fill" style="width:25%"></span></span><span class="bar-n">1</span></div><div class="bar-row"><span class="bar-lab">Series D</span><span class="bar"><span class="fill" style="width:25%"></span></span><span class="bar-n">1</span></div><div class="bar-row"><span class="bar-lab">Acquired</span><span class="bar"><span class="fill" style="width:25%"></span></span><span class="bar-n">1</span></div><div class="bar-row"><span class="bar-lab">Other / Grant</span><span class="bar"><span class="fill" style="width:100%"></span></span><span class="bar-n">4</span></div>
+    </div>
+    <div class="card">
+      <h2>Shared Backers &mdash; Vet Before Contact</h2>
+      <ul class="shared"><li><span class="s-name">Rio Tinto</span><span class="cnt">×3</span><span class="cos">GeologicAI · MATERIAL DIFFERENCE · Terra AI</span></li><li><span class="s-name">Alumni Ventures</span><span class="cnt">×2</span><span class="cos">Fleet Space Technologies · MINERAL FORECAST</span></li><li><span class="s-name">BHP Ventures</span><span class="cnt">×2</span><span class="cos">GeologicAI · KoBold Metals</span></li><li><span class="s-name">Breakthrough Energy Ventures</span><span class="cnt">×2</span><span class="cos">GeologicAI · KoBold Metals</span></li><li><span class="s-name">Chrysalix Venture Capital</span><span class="cnt">×2</span><span class="cos">VerAI · geopyörä (breakage test)</span></li><li><span class="s-name">Techstars</span><span class="cnt">×2</span><span class="cos">4POINT (GEOPHYSICAL AI) · MINERAL FORECAST</span></li><li><span class="s-name">Y Combinator</span><span class="cnt">×2</span><span class="cos">Earth AI · STRATUM AI</span></li></ul>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── filter ────────────────────────────────────────────────────────────────
+function filter(s) {
+  document.querySelectorAll('.pill').forEach(p =>
+    p.classList.toggle('active', p.dataset.f === s));
+  document.querySelectorAll('#tbl tbody tr').forEach(tr =>
+    tr.style.display = (s === 'all' || tr.dataset.status === s) ? '' : 'none');
+}
+
+// ── D3 force graph ────────────────────────────────────────────────────────
+const G = {"nodes": [{"id": "C::Terra AI", "label": "Terra AI", "type": "company", "deg": 0}, {"id": "C::GeologicAI", "label": "GeologicAI", "type": "company", "deg": 0}, {"id": "C::Fleet Space Technologies", "label": "Fleet Space Technologies", "type": "company", "deg": 0}, {"id": "C::VerAI", "label": "VerAI", "type": "company", "deg": 0}, {"id": "C::Earth AI", "label": "Earth AI", "type": "company", "deg": 0}, {"id": "C::TerraDX", "label": "TerraDX", "type": "company", "deg": 0}, {"id": "C::Datarock (IMDEX)", "label": "Datarock (IMDEX)", "type": "company", "deg": 0}, {"id": "C::4POINT (GEOPHYSICAL AI)", "label": "4POINT (GEOPHYSICAL AI)", "type": "company", "deg": 0}, {"id": "C::MINERAL FORECAST", "label": "MINERAL FORECAST", "type": "company", "deg": 0}, {"id": "C::MATERIAL DIFFERENCE", "label": "MATERIAL DIFFERENCE", "type": "company", "deg": 0}, {"id": "C::STRATUM AI", "label": "STRATUM AI", "type": "company", "deg": 0}, {"id": "C::geopy\u00f6r\u00e4 (breakage test)", "label": "geopy\u00f6r\u00e4 (breakage test)", "type": "company", "deg": 0}, {"id": "C::Lithosquare", "label": "Lithosquare", "type": "company", "deg": 0}, {"id": "C::KoBold Metals", "label": "KoBold Metals", "type": "company", "deg": 0}, {"id": "C::Veracio", "label": "Veracio", "type": "company", "deg": 0}, {"id": "C::OreFox AI", "label": "OreFox AI", "type": "company", "deg": 0}, {"id": "C::VRIFY", "label": "VRIFY", "type": "company", "deg": 0}, {"id": "C::Minerva Intelligence", "label": "Minerva Intelligence", "type": "company", "deg": 0}, {"id": "I::khosla ventures", "label": "Khosla Ventures", "type": "investor", "deg": 1}, {"id": "I::rio tinto", "label": "Rio Tinto", "type": "investor", "deg": 3}, {"id": "I::storyhouse ventures", "label": "Storyhouse Ventures", "type": "investor", "deg": 1}, {"id": "I::plug and play", "label": "Plug and Play", "type": "investor", "deg": 1}, {"id": "I::tomkat center for sustainability", "label": "TomKat Center for Sustainability", "type": "investor", "deg": 1}, {"id": "I::climate capital", "label": "Climate Capital", "type": "investor", "deg": 1}, {"id": "I::us national science foundation", "label": "US National Science Foundation", "type": "investor", "deg": 1}, {"id": "I::breakthrough energy ventures", "label": "Breakthrough Energy Ventures", "type": "investor", "deg": 2}, {"id": "I::export development canada", "label": "Export Development Canada", "type": "investor", "deg": 1}, {"id": "I::blue earth capital", "label": "Blue Earth Capital", "type": "investor", "deg": 1}, {"id": "I::bhp ventures", "label": "BHP Ventures", "type": "investor", "deg": 2}, {"id": "I::teachers' venture growth", "label": "Teachers' Venture Growth", "type": "investor", "deg": 1}, {"id": "I::blackbird ventures", "label": "Blackbird Ventures", "type": "investor", "deg": 1}, {"id": "I::hostplus", "label": "Hostplus", "type": "investor", "deg": 1}, {"id": "I::horizons ventures", "label": "Horizons Ventures", "type": "investor", "deg": 1}, {"id": "I::artesian venture partners", "label": "Artesian Venture Partners", "type": "investor", "deg": 1}, {"id": "I::alumni ventures", "label": "Alumni Ventures", "type": "investor", "deg": 2}, {"id": "I::grok ventures", "label": "Grok Ventures", "type": "investor", "deg": 1}, {"id": "I::insight partners", "label": "Insight Partners", "type": "investor", "deg": 1}, {"id": "I::blumberg capital", "label": "Blumberg Capital", "type": "investor", "deg": 1}, {"id": "I::chrysalix venture capital", "label": "Chrysalix Venture Capital", "type": "investor", "deg": 2}, {"id": "I::orion industrial ventures / orion resource partners", "label": "Orion Industrial Ventures / Orion Resource Partners", "type": "investor", "deg": 1}, {"id": "I::t. rowe price associates", "label": "T. Rowe Price Associates", "type": "investor", "deg": 1}, {"id": "I::tamarack global", "label": "Tamarack Global", "type": "investor", "deg": 1}, {"id": "I::cantos ventures", "label": "Cantos Ventures", "type": "investor", "deg": 1}, {"id": "I::overmatch", "label": "Overmatch", "type": "investor", "deg": 1}, {"id": "I::alpaca vc", "label": "Alpaca VC", "type": "investor", "deg": 1}, {"id": "I::sparkwave capital", "label": "Sparkwave Capital", "type": "investor", "deg": 1}, {"id": "I::y combinator", "label": "Y Combinator", "type": "investor", "deg": 2}, {"id": "I::scrum ventures", "label": "Scrum Ventures", "type": "investor", "deg": 1}, {"id": "I::dcvc", "label": "DCVC", "type": "investor", "deg": 1}, {"id": "I::haywood securities", "label": "Haywood Securities", "type": "investor", "deg": 1}, {"id": "I::canaccord genuity", "label": "Canaccord Genuity", "type": "investor", "deg": 1}, {"id": "I:: imdex limited", "label": " IMDEX Limited", "type": "investor", "deg": 1}, {"id": "I::techstars", "label": "Techstars", "type": "investor", "deg": 2}, {"id": "I::krane ventures", "label": "Krane Ventures", "type": "investor", "deg": 1}, {"id": "I::id3 ventures", "label": "ID3 Ventures", "type": "investor", "deg": 1}, {"id": "I::spider capital partners", "label": "Spider Capital Partners", "type": "investor", "deg": 1}, {"id": "I::launch lab x", "label": "Launch Lab X", "type": "investor", "deg": 1}, {"id": "I::harvard venture incubation program", "label": "Harvard Venture Incubation Program", "type": "investor", "deg": 1}, {"id": "I::founders factory", "label": "Founders Factory", "type": "investor", "deg": 1}, {"id": "I::builders vc", "label": "Builders VC", "type": "investor", "deg": 1}, {"id": "I::soma capital", "label": "Soma Capital", "type": "investor", "deg": 1}, {"id": "I::j seventeen capital", "label": "J Seventeen Capital", "type": "investor", "deg": 1}, {"id": "I::world fund", "label": "World Fund", "type": "investor", "deg": 1}, {"id": "I::kindred capital", "label": "Kindred Capital", "type": "investor", "deg": 1}, {"id": "I::daphni", "label": "Daphni", "type": "investor", "deg": 1}, {"id": "I::omnes capital", "label": "Omnes Capital", "type": "investor", "deg": 1}, {"id": "I::ovni capital", "label": "Ovni Capital", "type": "investor", "deg": 1}, {"id": "I::andreessen horowitz", "label": "Andreessen Horowitz", "type": "investor", "deg": 1}, {"id": "I::t. rowe price", "label": "T. Rowe Price", "type": "investor", "deg": 1}, {"id": "I::canada pension plan investment board", "label": "Canada Pension Plan Investment Board", "type": "investor", "deg": 1}, {"id": "I::standard investments", "label": "Standard Investments", "type": "investor", "deg": 1}, {"id": "I::apollo projects", "label": "Apollo Projects", "type": "investor", "deg": 1}, {"id": "I::equinor ventures", "label": "Equinor Ventures", "type": "investor", "deg": 1}, {"id": "I::mitsubishi corporation", "label": "Mitsubishi Corporation", "type": "investor", "deg": 1}, {"id": "I::earthshot ventures", "label": "Earthshot Ventures", "type": "investor", "deg": 1}, {"id": "I::july fund", "label": "July Fund", "type": "investor", "deg": 1}, {"id": "I::durable capital partners", "label": "Durable Capital Partners", "type": "investor", "deg": 1}, {"id": "I::andreessen horowitz growth", "label": "Andreessen Horowitz Growth", "type": "investor", "deg": 1}, {"id": "I::bond capital", "label": "Bond Capital", "type": "investor", "deg": 1}, {"id": "I::stepstone group", "label": "StepStone Group", "type": "investor", "deg": 1}, {"id": "I::wcm investment management", "label": "WCM Investment Management", "type": "investor", "deg": 1}, {"id": "I::jeff bezos", "label": "Jeff Bezos", "type": "investor", "deg": 1}, {"id": "I::reid hoffman", "label": "Reid Hoffman", "type": "investor", "deg": 1}, {"id": "I::bill gates", "label": "Bill Gates", "type": "investor", "deg": 1}, {"id": "I::jack ma", "label": "Jack Ma", "type": "investor", "deg": 1}, {"id": "I::john zimmer", "label": "John Zimmer", "type": "investor", "deg": 1}, {"id": "I::boart longyear", "label": "Boart Longyear", "type": "investor", "deg": 1}, {"id": "I::qut bluebox pty ltd", "label": "QUT Bluebox Pty Ltd", "type": "investor", "deg": 1}, {"id": "I::quantumtx", "label": "QuantumTX", "type": "investor", "deg": 1}, {"id": "I::77 partners", "label": "77 Partners", "type": "investor", "deg": 1}, {"id": "I::mets ignited", "label": "METS Ignited", "type": "investor", "deg": 1}, {"id": "I::lgvp", "label": "LGVP", "type": "investor", "deg": 1}, {"id": "I::rcf innovation", "label": "RCF Innovation", "type": "investor", "deg": 1}, {"id": "I::beedie capital", "label": "Beedie Capital", "type": "investor", "deg": 1}, {"id": "I::public shareholders (tsx-v)", "label": "Public shareholders (TSX-V)", "type": "investor", "deg": 1}], "links": [{"source": "C::Terra AI", "target": "I::khosla ventures", "lead": true}, {"source": "C::Terra AI", "target": "I::rio tinto", "lead": false}, {"source": "C::Terra AI", "target": "I::storyhouse ventures", "lead": false}, {"source": "C::Terra AI", "target": "I::plug and play", "lead": false}, {"source": "C::Terra AI", "target": "I::tomkat center for sustainability", "lead": false}, {"source": "C::Terra AI", "target": "I::climate capital", "lead": false}, {"source": "C::Terra AI", "target": "I::us national science foundation", "lead": false}, {"source": "C::GeologicAI", "target": "I::breakthrough energy ventures", "lead": true}, {"source": "C::GeologicAI", "target": "I::export development canada", "lead": false}, {"source": "C::GeologicAI", "target": "I::blue earth capital", "lead": true}, {"source": "C::GeologicAI", "target": "I::bhp ventures", "lead": false}, {"source": "C::GeologicAI", "target": "I::rio tinto", "lead": false}, {"source": "C::Fleet Space Technologies", "target": "I::teachers' venture growth", "lead": false}, {"source": "C::Fleet Space Technologies", "target": "I::blackbird ventures", "lead": false}, {"source": "C::Fleet Space Technologies", "target": "I::hostplus", "lead": false}, {"source": "C::Fleet Space Technologies", "target": "I::horizons ventures", "lead": false}, {"source": "C::Fleet Space Technologies", "target": "I::artesian venture partners", "lead": false}, {"source": "C::Fleet Space Technologies", "target": "I::alumni ventures", "lead": false}, {"source": "C::Fleet Space Technologies", "target": "I::grok ventures", "lead": false}, {"source": "C::VerAI", "target": "I::insight partners", "lead": true}, {"source": "C::VerAI", "target": "I::blumberg capital", "lead": false}, {"source": "C::VerAI", "target": "I::chrysalix venture capital", "lead": false}, {"source": "C::VerAI", "target": "I::orion industrial ventures / orion resource partners", "lead": false}, {"source": "C::VerAI", "target": "I::t. rowe price associates", "lead": false}, {"source": "C::Earth AI", "target": "I::tamarack global", "lead": true}, {"source": "C::Earth AI", "target": "I::cantos ventures", "lead": true}, {"source": "C::Earth AI", "target": "I::overmatch", "lead": false}, {"source": "C::Earth AI", "target": "I::alpaca vc", "lead": false}, {"source": "C::Earth AI", "target": "I::sparkwave capital", "lead": false}, {"source": "C::Earth AI", "target": "I::y combinator", "lead": false}, {"source": "C::Earth AI", "target": "I::scrum ventures", "lead": false}, {"source": "C::Earth AI", "target": "I::dcvc", "lead": false}, {"source": "C::TerraDX", "target": "I::haywood securities", "lead": false}, {"source": "C::TerraDX", "target": "I::canaccord genuity", "lead": false}, {"source": "C::Datarock (IMDEX)", "target": "I:: imdex limited", "lead": false}, {"source": "C::4POINT (GEOPHYSICAL AI)", "target": "I::techstars", "lead": false}, {"source": "C::4POINT (GEOPHYSICAL AI)", "target": "I::krane ventures", "lead": false}, {"source": "C::4POINT (GEOPHYSICAL AI)", "target": "I::id3 ventures", "lead": false}, {"source": "C::MINERAL FORECAST", "target": "I::techstars", "lead": false}, {"source": "C::MINERAL FORECAST", "target": "I::alumni ventures", "lead": false}, {"source": "C::MINERAL FORECAST", "target": "I::spider capital partners", "lead": false}, {"source": "C::MINERAL FORECAST", "target": "I::launch lab x", "lead": false}, {"source": "C::MINERAL FORECAST", "target": "I::harvard venture incubation program", "lead": false}, {"source": "C::MATERIAL DIFFERENCE", "target": "I::founders factory", "lead": false}, {"source": "C::MATERIAL DIFFERENCE", "target": "I::rio tinto", "lead": false}, {"source": "C::STRATUM AI", "target": "I::y combinator", "lead": true}, {"source": "C::STRATUM AI", "target": "I::builders vc", "lead": false}, {"source": "C::STRATUM AI", "target": "I::soma capital", "lead": false}, {"source": "C::STRATUM AI", "target": "I::j seventeen capital", "lead": false}, {"source": "C::geopy\u00f6r\u00e4 (breakage test)", "target": "I::chrysalix venture capital", "lead": false}, {"source": "C::Lithosquare", "target": "I::world fund", "lead": true}, {"source": "C::Lithosquare", "target": "I::kindred capital", "lead": true}, {"source": "C::Lithosquare", "target": "I::daphni", "lead": false}, {"source": "C::Lithosquare", "target": "I::omnes capital", "lead": false}, {"source": "C::Lithosquare", "target": "I::ovni capital", "lead": false}, {"source": "C::KoBold Metals", "target": "I::andreessen horowitz", "lead": false}, {"source": "C::KoBold Metals", "target": "I::breakthrough energy ventures", "lead": false}, {"source": "C::KoBold Metals", "target": "I::t. rowe price", "lead": true}, {"source": "C::KoBold Metals", "target": "I::canada pension plan investment board", "lead": false}, {"source": "C::KoBold Metals", "target": "I::bhp ventures", "lead": false}, {"source": "C::KoBold Metals", "target": "I::standard investments", "lead": false}, {"source": "C::KoBold Metals", "target": "I::apollo projects", "lead": false}, {"source": "C::KoBold Metals", "target": "I::equinor ventures", "lead": false}, {"source": "C::KoBold Metals", "target": "I::mitsubishi corporation", "lead": false}, {"source": "C::KoBold Metals", "target": "I::earthshot ventures", "lead": false}, {"source": "C::KoBold Metals", "target": "I::july fund", "lead": false}, {"source": "C::KoBold Metals", "target": "I::durable capital partners", "lead": true}, {"source": "C::KoBold Metals", "target": "I::andreessen horowitz growth", "lead": false}, {"source": "C::KoBold Metals", "target": "I::bond capital", "lead": false}, {"source": "C::KoBold Metals", "target": "I::stepstone group", "lead": false}, {"source": "C::KoBold Metals", "target": "I::wcm investment management", "lead": false}, {"source": "C::KoBold Metals", "target": "I::jeff bezos", "lead": false}, {"source": "C::KoBold Metals", "target": "I::reid hoffman", "lead": false}, {"source": "C::KoBold Metals", "target": "I::bill gates", "lead": false}, {"source": "C::KoBold Metals", "target": "I::jack ma", "lead": false}, {"source": "C::KoBold Metals", "target": "I::john zimmer", "lead": false}, {"source": "C::Veracio", "target": "I::boart longyear", "lead": false}, {"source": "C::OreFox AI", "target": "I::qut bluebox pty ltd", "lead": false}, {"source": "C::OreFox AI", "target": "I::quantumtx", "lead": false}, {"source": "C::OreFox AI", "target": "I::77 partners", "lead": false}, {"source": "C::OreFox AI", "target": "I::mets ignited", "lead": false}, {"source": "C::VRIFY", "target": "I::lgvp", "lead": true}, {"source": "C::VRIFY", "target": "I::rcf innovation", "lead": false}, {"source": "C::VRIFY", "target": "I::beedie capital", "lead": false}, {"source": "C::Minerva Intelligence", "target": "I::public shareholders (tsx-v)", "lead": false}]};
+const svg = d3.select('#net');
+const W = document.getElementById('net-wrap').clientWidth || 960, H = 520;
+svg.attr('width', W).attr('viewBox', `0 0 ${W} ${H}`);
+
+const r = d => d.type === 'company' ? 9 : 4 + Math.min(d.deg || 1, 5) * 1.8;
+const col = d => d.type === 'company' ? '#C9A442' : d.deg >= 2 ? '#f43f5e' : '#555';
+
+const sim = d3.forceSimulation(G.nodes)
+  .force('link',   d3.forceLink(G.links).id(d => d.id).distance(80))
+  .force('charge', d3.forceManyBody().strength(-250))
+  .force('center', d3.forceCenter(W / 2, H / 2))
+  .force('x',      d3.forceX(W / 2).strength(0.06))
+  .force('y',      d3.forceY(H / 2).strength(0.06))
+  .force('collide',d3.forceCollide(d => r(d) + 4));
+
+const linkSel = svg.append('g').selectAll('line').data(G.links).join('line')
+  .attr('class', d => 'n-link' + (d.lead ? ' lead' : ''));
+
+const nodeSel = svg.append('g').selectAll('circle').data(G.nodes).join('circle')
+  .attr('r', r).attr('fill', col).attr('stroke', '#0f0f0f').attr('stroke-width', 1.5)
+  .call(d3.drag()
+    .on('start', (e,d) => { if(!e.active) sim.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; })
+    .on('drag',  (e,d) => { d.fx=e.x; d.fy=e.y; })
+    .on('end',   (e,d) => { if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; }))
+  .on('mouseenter', (_,d) => hi(d.id))
+  .on('mouseleave', () => clearHi());
+
+const lblSel = svg.append('g').selectAll('text').data(G.nodes).join('text')
+  .attr('class', d => 'n-lbl' + (d.type==='company' ? ' company' : d.deg>=2 ? ' shared' : ''))
+  .text(d => d.label)
+  .style('display', d => d.type==='investor' && d.deg<2 ? 'none' : null);
+
+sim.on('tick', () => {
+  G.nodes.forEach(d => {
+    d.x = Math.max(20, Math.min(W - 20, d.x));
+    d.y = Math.max(16, Math.min(H - 16, d.y));
+  });
+  linkSel.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+         .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+  nodeSel.attr('cx',d=>d.x).attr('cy',d=>d.y);
+  lblSel.attr('x',d=>d.x+r(d)+3).attr('y',d=>d.y+4);
+});
+
+// adjacency for hover
+const adj = new Map(G.nodes.map(n=>[n.id,new Set([n.id])]));
+G.links.forEach(l=>{adj.get(l.source.id)?.add(l.target.id);adj.get(l.target.id)?.add(l.source.id);});
+
+function hi(id) {
+  const keep = adj.get(id)||new Set([id]);
+  nodeSel.classed('dimmed', d=>!keep.has(d.id));
+  lblSel.classed('dimmed', d=>!keep.has(d.id))
+        .style('display', d=>d.type==='investor'&&d.deg<2 ? (keep.has(d.id)?null:'none') : null);
+  linkSel.classed('dimmed', d=>d.source.id!==id&&d.target.id!==id);
+}
+function clearHi() {
+  nodeSel.classed('dimmed',false);
+  lblSel.classed('dimmed',false).style('display',d=>d.type==='investor'&&d.deg<2?'none':null);
+  linkSel.classed('dimmed',false);
+}
+
+// sliders
+const slCharge=document.getElementById('sl-charge'), vCharge=document.getElementById('v-charge');
+const slDist  =document.getElementById('sl-dist'),   vDist  =document.getElementById('v-dist');
+slCharge.oninput=()=>{vCharge.textContent=slCharge.value;sim.force('charge').strength(+slCharge.value);sim.alpha(.3).restart();};
+slDist.oninput  =()=>{vDist.textContent  =slDist.value;  sim.force('link').distance(+slDist.value);    sim.alpha(.3).restart();};
+</script>
+</body>
+</html>
