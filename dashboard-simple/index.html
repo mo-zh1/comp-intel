@@ -165,12 +165,12 @@ ul.shared li:last-child{border-bottom:none}
     <h2 style="margin:0">Investor &rarr; Company Network</h2>
     <div style="display:flex;gap:24px;align-items:center;font-size:12px;color:var(--muted)">
       <label style="display:flex;align-items:center;gap:8px">Charge
-        <input type="range" id="sl-charge" min="-1500" max="-50" value="-500" style="width:100px;accent-color:var(--gold)">
-        <span id="v-charge" style="min-width:36px">-500</span>
+        <input type="range" id="sl-charge" min="-50" max="10" value="-50" style="width:100px;accent-color:var(--gold)">
+        <span id="v-charge" style="min-width:36px">-50</span>
       </label>
       <label style="display:flex;align-items:center;gap:8px">Distance
-        <input type="range" id="sl-dist" min="30" max="300" value="100" style="width:100px;accent-color:var(--gold)">
-        <span id="v-dist" style="min-width:28px">100</span>
+        <input type="range" id="sl-dist" min="10" max="100" value="30" style="width:100px;accent-color:var(--gold)">
+        <span id="v-dist" style="min-width:28px">30</span>
       </label>
     </div>
   </div>
@@ -445,12 +445,12 @@ function renderD3Graph({ graph }) {
   const col = d => d.type === 'company' ? '#C9A442' : d.deg >= 2 ? '#f43f5e' : '#555';
   const linkDist = d => {
     const maxDeg = Math.max(d.source.deg || 0, d.target.deg || 0);
-    return maxDeg > 8 ? 160 : maxDeg > 3 ? 110 : 70;
+    return maxDeg > 8 ? 60 : maxDeg > 3 ? 40 : 30;
   };
 
   const sim = d3.forceSimulation(G.nodes)
     .force('link',   d3.forceLink(G.links).id(d => d.id).distance(linkDist))
-    .force('charge', d3.forceManyBody().strength(-500))
+    .force('charge', d3.forceManyBody().strength(-50))
     .force('center', d3.forceCenter(W / 2, H / 2))
     .force('x',      d3.forceX(W / 2).strength(.04))
     .force('y',      d3.forceY(H / 2).strength(.04))
